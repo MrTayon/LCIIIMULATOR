@@ -11,11 +11,22 @@ class Conversor:
         
         self.keysSp = {}
 
+        self.registers = {"R0":0 , "R1":0 , "R2":0 , "R3":0 , "R4":0 , "R5":0 , "R6":0}
+
 
     def assambly_to_binary (self,textAssambly:str):
 
         pass
 
+        return textBinary
+
     def binary_to_assambly (self,textBinary:str):
 
         pass
+
+        return textAssambly
+
+    def registerChecker (self):
+
+        pass
+        return self.registers
