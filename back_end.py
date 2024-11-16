@@ -9,6 +9,10 @@ class Conversor:
         }
         self.registers = {f"R{i}": f"{i:03b}" for i in range(8)}  # R0-R7 en binario
         self.reverse_registers = {f"{i:03b}": f"R{i}" for i in range(8)}  # Binario a R0-R7
+        self.condition_bits = {
+            "": "000", "n": "100", "z": "010", "p": "001",
+            "nz": "110", "np": "101", "zp": "011", "nzp": "111"
+        }
 
     def parse_labels(self, assembly_code):
         lines = assembly_code.strip().split('\n')
@@ -17,13 +21,15 @@ class Conversor:
 
         for line in lines:
             line = line.strip()
-            if not line:
+            if not line or line.startswith(';'):
                 continue
-            if ":" in line:  # Es una etiqueta
-                label, _ = line.split(":")
+            if ":" in line:
+                label, instruction = line.split(":", 1)
                 label_addresses[label.strip()] = instruction_index
+                if instruction.strip():
+                    instruction_index += 1
             else:
-                instruction_index += 1  # Solo cuenta líneas de instrucciones
+                instruction_index += 1
 
         return label_addresses
 
@@ -34,20 +40,34 @@ class Conversor:
 
         for line_num, line in enumerate(lines):
             line = line.strip()
-            if not line or ":" in line:  # Ignorar líneas vacías o etiquetas
+            if not line or line.startswith(';') or ":" in line:
                 continue
 
             parts = line.replace(',', '').split()
             opcode = parts[0]
             bin_instr = ""
 
-            if opcode not in self.keys:
-                raise ValueError(f"Opcode no soportado: {opcode}")
+            if opcode.startswith("BR"):
+                conditions = opcode[2:].lower()
+                if conditions not in self.condition_bits:
+                    raise ValueError(f"Condiciones no soportadas en BR: {conditions}")
+                cond_bits = self.condition_bits[conditions]
 
-            if opcode in ["ADD", "AND"]:
+                label = parts[1]
+                if label not in label_addresses:
+                    raise ValueError(f"Etiqueta no encontrada: {label}")
+                offset = label_addresses[label] - len(result) - 1
+                if offset < -256 or offset > 255:
+                    raise ValueError(f"Offset fuera de rango para BR: {offset}")
+                if offset < 0:
+                    offset = (1 << 9) + offset
+                offset = f"{offset:09b}"
+                bin_instr = f"{self.keys['BR']}{cond_bits}{offset}"
+
+            elif opcode in ["ADD", "AND"]:
                 DR = self.registers[parts[1]]
                 SR1 = self.registers[parts[2]]
-                if "#" in parts[3]:  # Modo inmediato
+                if "#" in parts[3]:
                     imm5 = int(parts[3][1:])
                     if imm5 < 0:
                         imm5 = (1 << 5) + imm5
@@ -73,10 +93,7 @@ class Conversor:
             elif opcode in ["LDR", "STR"]:
                 DR = self.registers[parts[1]]
                 BaseR = self.registers[parts[2]]
-                if parts[3].startswith('#'):
-                    offset = int(parts[3][1:])  # Remove the '#' and convert to int
-                else:
-                    offset = int(parts[3])
+                offset = int(parts[3][1:]) if parts[3].startswith('#') else int(parts[3])
                 if offset < -32 or offset > 31:
                     raise ValueError(f"Offset fuera de rango para {opcode}: {offset}")
                 if offset < 0:
@@ -89,7 +106,7 @@ class Conversor:
                 bin_instr = f"{self.keys[opcode]}000{baseR}000000"
 
             elif opcode == "JSR":
-                if parts[1] == "R1":  # JSRR
+                if parts[1] in self.registers:  # JSRR
                     baseR = self.registers[parts[1]]
                     bin_instr = f"{self.keys[opcode]}000{baseR}000000"
                 else:  # JSR
@@ -115,28 +132,11 @@ class Conversor:
                 SR = self.registers[parts[2]]
                 bin_instr = f"{self.keys[opcode]}{DR}{SR}111111"
 
-            elif opcode.startswith("BR"):
-                condition = opcode[2:] if len(opcode) > 2 else "nzp"
-                condition_bits = {
-                    "n": "100", "z": "010", "p": "001", "nz": "110",
-                    "np": "101", "zp": "011", "nzp": "111"
-                }
-                label = parts[1]
-                if label not in label_addresses:
-                    raise ValueError(f"Etiqueta no encontrada: {label}")
-                offset = label_addresses[label] - len(result) - 1
-                if offset < -256 or offset > 255:
-                    raise ValueError(f"Offset fuera de rango para BR: {offset}")
-                if offset < 0:
-                    offset = (1 << 9) + offset
-                offset = f"{offset:09b}"
-                bin_instr = f"{self.keys['BR']}{condition_bits[condition.lower()]}{offset}"
-
             elif opcode in ["RET", "RTI"]:
                 bin_instr = f"{self.keys[opcode]}000000000000"
 
             else:
-                raise ValueError(f"Estructura no implementada para el opcode: {opcode}")
+                raise ValueError(f"Opcode no soportado: {opcode}")
 
             bin_instr = bin_instr.ljust(16, '0')
             result.append(bin_instr)
@@ -156,8 +156,15 @@ class Conversor:
             if not opcode:
                 raise ValueError(f"Binario no reconocido: {line}")
 
+            if opcode == "BR":
+                condition_bits = line[4:7]
+                condition = next((key for key, value in self.condition_bits.items() if value == condition_bits), "")
+                offset = int(line[7:], 2)
+                if offset & 0b100000000:
+                    offset -= 512
+                result.append(f"BR{condition} LABEL_{line_num + offset + 1}")
 
-            if opcode == "TRAP":
+            elif opcode == "TRAP":
                 trap_vector = int(line[8:], 2)
                 result.append(f"TRAP x{trap_vector:02X}")
 
@@ -207,18 +214,6 @@ class Conversor:
                         offset -= 2048
                     result.append(f"JSR LABEL_{line_num + offset + 1}")
 
-            elif opcode == "BR":
-                condition_bits = line[4:7]
-                condition_map = {
-                    "100": "n", "010": "z", "001": "p",
-                    "110": "nz", "101": "np", "011": "zp", "111": "nzp"
-                }
-                condition = condition_map.get(condition_bits, "")
-                offset = int(line[7:], 2)
-                if offset & 0b100000000:
-                    offset -= 512
-                result.append(f"BR{condition} LABEL_{line_num + offset + 1}")
-
             elif opcode in ["RET", "RTI"]:
                 result.append(opcode)
 
@@ -227,8 +222,7 @@ class Conversor:
 
         return "\n".join(result)
 
-
-# Uso del código
+# Prueba del código
 conv = Conversor()
 
 assembly_code = """
@@ -238,10 +232,18 @@ START: ADD R1, R2, #3
        LEA R6, END
        LDR R0, R6, #-1
        STR R1, R6, #2
-       BR START
-       NOT R2, R1
-       JSR SUBRUTINA
-       RET
+       BRp POSITIVE
+       BRn NEGATIVE
+       BRz ZERO
+       BRnzp DONE
+POSITIVE: ADD R2, R2, #1
+          BR START
+NEGATIVE: ADD R2, R2, #-1
+          BR START
+ZERO:    AND R2, R2, #0
+         BR START
+DONE:   JSR SUBRUTINA
+        RET
 SUBRUTINA: STI R7, SAVE_R7
            LDI R7, RESTORE_R7
            RTI
