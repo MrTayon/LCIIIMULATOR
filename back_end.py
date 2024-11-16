@@ -1,6 +1,5 @@
 class Conversor:
     def __init__(self):
-        # Mapa de opcodes e instrucciones
         self.keys = {
             "ADD": "0001", "AND": "0101", "BR": "0000", "JMP": "1100",
             "JSR": "0100", "LD": "0010", "LDI": "1010", "LDR": "0110",
@@ -8,15 +7,36 @@ class Conversor:
             "ST": "0011", "STI": "1011", "STR": "0111", "TRAP": "1111",
             "reserved": "1101"
         }
-
         self.registers = {f"R{i}": f"{i:03b}" for i in range(8)}  # R0-R7 en binario
+        self.reverse_registers = {f"{i:03b}": f"R{i}" for i in range(8)}  # Binario a R0-R7
 
-    def assembly_to_binary(self, assembly_code, label_addresses=None):
+    def parse_labels(self, assembly_code):
+        lines = assembly_code.strip().split('\n')
+        label_addresses = {}
+        instruction_index = 0
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            if ":" in line:  # Es una etiqueta
+                label, _ = line.split(":")
+                label_addresses[label.strip()] = instruction_index
+            else:
+                instruction_index += 1  # Solo cuenta líneas de instrucciones
+
+        return label_addresses
+
+    def assembly_to_binary(self, assembly_code):
+        label_addresses = self.parse_labels(assembly_code)
         lines = assembly_code.strip().split('\n')
         result = []
-        for line in lines:
-            if not line.strip():  # Ignorar líneas vacías
+
+        for line_num, line in enumerate(lines):
+            line = line.strip()
+            if not line or ":" in line:  # Ignorar líneas vacías o etiquetas
                 continue
+
             parts = line.replace(',', '').split()
             opcode = parts[0]
             bin_instr = ""
@@ -24,98 +44,100 @@ class Conversor:
             if opcode not in self.keys:
                 raise ValueError(f"Opcode no soportado: {opcode}")
 
-            # Instrucciones tipo R o inmediato
-            if opcode in ["ADD", "AND"]: 
+            if opcode in ["ADD", "AND"]:
                 DR = self.registers[parts[1]]
                 SR1 = self.registers[parts[2]]
                 if "#" in parts[3]:  # Modo inmediato
                     imm5 = int(parts[3][1:])
                     if imm5 < 0:
-                        imm5 = (1 << 5) + imm5  # Complemento a 2 para negativos
+                        imm5 = (1 << 5) + imm5
                     imm5 = f"{imm5:05b}"
                     bin_instr = f"{self.keys[opcode]}{DR}{SR1}1{imm5}"
-                else:  # Modo registro
+                else:
                     SR2 = self.registers[parts[3]]
-                    bin_instr = f"{self.keys[opcode]}{DR}{SR1}0{SR2}"
+                    bin_instr = f"{self.keys[opcode]}{DR}{SR1}000{SR2}"
 
-            # Instrucciones de tipo PC-offset
-            elif opcode in ["LD", "LDR", "LEA"]:  
+            elif opcode in ["LD", "ST", "LEA", "LDI", "STI"]:
                 DR = self.registers[parts[1]]
                 label = parts[2]
-
-                if label_addresses and label in label_addresses:
-                    offset = label_addresses[label] - (len(result) + 1)  # Calcula el desplazamiento relativo al PC
-                else:
+                if label not in label_addresses:
                     raise ValueError(f"Etiqueta no encontrada: {label}")
-
+                offset = label_addresses[label] - len(result) - 1
+                if offset < -256 or offset > 255:
+                    raise ValueError(f"Offset fuera de rango para {opcode}: {offset}")
                 if offset < 0:
-                    offset = (1 << 9) + offset  # Complemento a 2 para números negativos
+                    offset = (1 << 9) + offset
                 offset = f"{offset:09b}"
                 bin_instr = f"{self.keys[opcode]}{DR}{offset}"
 
-            # Instrucción tipo J (salto)
-            elif opcode in ["JMP", "JSR"]:
-                if opcode == "JMP":
+            elif opcode in ["LDR", "STR"]:
+                DR = self.registers[parts[1]]
+                BaseR = self.registers[parts[2]]
+                if parts[3].startswith('#'):
+                    offset = int(parts[3][1:])  # Remove the '#' and convert to int
+                else:
+                    offset = int(parts[3])
+                if offset < -32 or offset > 31:
+                    raise ValueError(f"Offset fuera de rango para {opcode}: {offset}")
+                if offset < 0:
+                    offset = (1 << 6) + offset
+                offset = f"{offset:06b}"
+                bin_instr = f"{self.keys[opcode]}{DR}{BaseR}{offset}"
+
+            elif opcode == "JMP":
+                baseR = self.registers[parts[1]]
+                bin_instr = f"{self.keys[opcode]}000{baseR}000000"
+
+            elif opcode == "JSR":
+                if parts[1] == "R1":  # JSRR
                     baseR = self.registers[parts[1]]
-                    bin_instr = f"{self.keys[opcode]}{baseR}000000000"
+                    bin_instr = f"{self.keys[opcode]}000{baseR}000000"
                 else:  # JSR
-                    bin_instr = f"{self.keys[opcode]}000{baseR}000000000"
+                    label = parts[1]
+                    if label not in label_addresses:
+                        raise ValueError(f"Etiqueta no encontrada: {label}")
+                    offset = label_addresses[label] - len(result) - 1
+                    if offset < -1024 or offset > 1023:
+                        raise ValueError(f"Offset fuera de rango para JSR: {offset}")
+                    if offset < 0:
+                        offset = (1 << 11) + offset
+                    offset = f"{offset:011b}"
+                    bin_instr = f"{self.keys[opcode]}1{offset}"
 
-            # Instrucción tipo TRAP
             elif opcode == "TRAP":
-                trap_vector = f"{int(parts[1]):08b}"  # Convertir el número a binario de 8 bits
-                bin_instr = f"{self.keys[opcode]}{trap_vector}"
+                trap_vector = int(parts[1][1:], 16) if parts[1].startswith("x") else int(parts[1])
+                if trap_vector < 0 or trap_vector > 255:
+                    raise ValueError("El vector TRAP debe estar en el rango [0, 255].")
+                bin_instr = f"{self.keys['TRAP']}0000{trap_vector:08b}"
 
-            # Instrucciones tipo R
-            elif opcode == "NOT":  # Instrucción tipo R
+            elif opcode == "NOT":
                 DR = self.registers[parts[1]]
                 SR = self.registers[parts[2]]
                 bin_instr = f"{self.keys[opcode]}{DR}{SR}111111"
 
-            # Instrucción tipo BR (condicional de salto)
-            elif opcode == "BR":
-                condition = parts[1]  # Puede ser "n", "z", "p", o combinaciones
-                label = parts[2]
+            elif opcode.startswith("BR"):
+                condition = opcode[2:] if len(opcode) > 2 else "nzp"
                 condition_bits = {
                     "n": "100", "z": "010", "p": "001", "nz": "110",
                     "np": "101", "zp": "011", "nzp": "111"
                 }
-                if label_addresses and label in label_addresses:
-                    offset = label_addresses[label] - (len(result) + 1)
-                else:
+                label = parts[1]
+                if label not in label_addresses:
                     raise ValueError(f"Etiqueta no encontrada: {label}")
+                offset = label_addresses[label] - len(result) - 1
+                if offset < -256 or offset > 255:
+                    raise ValueError(f"Offset fuera de rango para BR: {offset}")
                 if offset < 0:
-                    offset = (1 << 9) + offset  # Complemento a 2 para números negativos
+                    offset = (1 << 9) + offset
                 offset = f"{offset:09b}"
-                bin_instr = f"{self.keys[opcode]}{condition_bits[condition]}{offset}"
+                bin_instr = f"{self.keys['BR']}{condition_bits[condition.lower()]}{offset}"
 
-            # Instrucción tipo STI, STR (almacenamiento)
-            elif opcode in ["ST", "STI", "STR"]:
-                DR = self.registers[parts[1]]
-                label = parts[2]
-
-                if label_addresses and label in label_addresses:
-                    offset = label_addresses[label] - (len(result) + 1)
-                else:
-                    raise ValueError(f"Etiqueta no encontrada: {label}")
-                if opcode == "ST":
-                    bin_instr = f"{self.keys[opcode]}{DR}{offset}"
-                else:
-                    SR = self.registers[parts[3]]
-                    bin_instr = f"{self.keys[opcode]}{DR}{SR}{offset}"
-
-            # Instrucción tipo RTI (restaurar contexto)
-            elif opcode == "RTI":
-                bin_instr = f"{self.keys[opcode]}0000000000"
-
-            # Instrucción tipo RET (retorno de llamada)
-            elif opcode == "RET":
-                bin_instr = f"{self.keys[opcode]}0000000000"
+            elif opcode in ["RET", "RTI"]:
+                bin_instr = f"{self.keys[opcode]}000000000000"
 
             else:
                 raise ValueError(f"Estructura no implementada para el opcode: {opcode}")
 
-            # Asegurar 16 bits de longitud
             bin_instr = bin_instr.ljust(16, '0')
             result.append(bin_instr)
         return "\n".join(result)
@@ -123,86 +145,115 @@ class Conversor:
     def binary_to_assembly(self, binary_code):
         lines = binary_code.strip().split('\n')
         result = []
-        for line in lines:
-            if not line.strip():  # Ignorar líneas vacías
+        for line_num, line in enumerate(lines):
+            if not line.strip():
                 continue
-            line = line.ljust(16, '0')  # Asegurar que tiene 16 bits
+            
+            line = line.ljust(16, '0')
             opcode_bin = line[:4]
             opcode = next((key for key, value in self.keys.items() if value == opcode_bin), None)
 
             if not opcode:
                 raise ValueError(f"Binario no reconocido: {line}")
 
-            if opcode in ["ADD", "AND"]:  # Instrucciones tipo R o inmediato
-                DR = f"R{int(line[4:7], 2)}"
-                SR1 = f"R{int(line[7:10], 2)}"
-                mode = line[10]
-                if mode == "1":  # Modo inmediato
+
+            if opcode == "TRAP":
+                trap_vector = int(line[8:], 2)
+                result.append(f"TRAP x{trap_vector:02X}")
+
+            elif opcode == "NOT":
+                DR = self.reverse_registers[line[4:7]]
+                SR = self.reverse_registers[line[7:10]]
+                result.append(f"NOT {DR}, {SR}")
+
+            elif opcode in ["ADD", "AND"]:
+                DR = self.reverse_registers[line[4:7]]
+                SR1 = self.reverse_registers[line[7:10]]
+                if line[10] == "1":
                     imm5 = int(line[11:], 2)
-                    if imm5 >= 16:  # Convertir negativos
-                        imm5 -= (1 << 5)
+                    if imm5 & 0b10000:
+                        imm5 -= 32
                     result.append(f"{opcode} {DR}, {SR1}, #{imm5}")
-                else:  # Modo registro
-                    SR2 = f"R{int(line[13:], 2)}"
+                else:
+                    SR2 = self.reverse_registers[line[13:]]
                     result.append(f"{opcode} {DR}, {SR1}, {SR2}")
 
-            elif opcode in ["LD", "LDR", "LEA"]:  # Instrucciones tipo PC-offset
-                DR = f"R{int(line[4:7], 2)}"
+            elif opcode in ["LD", "ST", "LEA", "LDI", "STI"]:
+                DR = self.reverse_registers[line[4:7]]
                 offset = int(line[7:], 2)
-                if offset >= 256:  # Convertir negativos
-                    offset -= (1 << 9)
-                result.append(f"{opcode} {DR}, {offset}")
+                if offset & 0b100000000:
+                    offset -= 512
+                result.append(f"{opcode} {DR}, LABEL_{line_num + offset + 1}")
 
-            elif opcode in ["JMP", "JSR"]:  # Instrucciones tipo J (salto)
-                baseR = f"R{int(line[4:7], 2)}"
-                result.append(f"{opcode} {baseR}")
+            elif opcode in ["LDR", "STR"]:
+                DR = self.reverse_registers[line[4:7]]
+                BaseR = self.reverse_registers[line[7:10]]
+                offset = int(line[10:], 2)
+                if offset & 0b100000:
+                    offset -= 64
+                result.append(f"{opcode} {DR}, {BaseR}, #{offset}")
 
-            elif opcode == "TRAP":  # Instrucción TRAP
-                trap_vector = int(line[4:], 2)
-                result.append(f"{opcode} #{trap_vector}")
+            elif opcode == "JMP":
+                baseR = self.reverse_registers[line[7:10]]
+                result.append(f"JMP {baseR}")
 
-            elif opcode == "NOT":  # Instrucción tipo R
-                DR = f"R{int(line[4:7], 2)}"
-                SR = f"R{int(line[7:10], 2)}"
-                result.append(f"{opcode} {DR}, {SR}")
+            elif opcode == "JSR":
+                if line[4] == "0":  # JSRR
+                    baseR = self.reverse_registers[line[7:10]]
+                    result.append(f"JSRR {baseR}")
+                else:  # JSR
+                    offset = int(line[5:], 2)
+                    if offset & 0b10000000000:
+                        offset -= 2048
+                    result.append(f"JSR LABEL_{line_num + offset + 1}")
 
-            elif opcode == "BR":  # Instrucción BR (condicional de salto)
-                condition = line[4:7]
-                label = "Etiqueta no resuelta"  # Este campo depende del offset, se resuelve luego.
-                condition_bits = {
-                    "100": "n", "010": "z", "001": "p", "110": "nz",
-                    "101": "np", "011": "zp", "111": "nzp"
+            elif opcode == "BR":
+                condition_bits = line[4:7]
+                condition_map = {
+                    "100": "n", "010": "z", "001": "p",
+                    "110": "nz", "101": "np", "011": "zp", "111": "nzp"
                 }
-                result.append(f"{opcode} {condition_bits[condition]}, {label}")
-
-            elif opcode in ["ST", "STI", "STR"]:  # Instrucciones de almacenamiento
-                DR = f"R{int(line[4:7], 2)}"
+                condition = condition_map.get(condition_bits, "")
                 offset = int(line[7:], 2)
-                result.append(f"{opcode} {DR}, {offset}")
+                if offset & 0b100000000:
+                    offset -= 512
+                result.append(f"BR{condition} LABEL_{line_num + offset + 1}")
 
-            elif opcode == "RTI":  # Instrucción RTI
-                result.append(f"{opcode}")
+            elif opcode in ["RET", "RTI"]:
+                result.append(opcode)
 
-            elif opcode == "RET":  # Instrucción RET
-                result.append(f"{opcode}")
+            else:
+                raise ValueError(f"Opcode no implementado: {opcode}")
 
         return "\n".join(result)
+
 
 # Uso del código
 conv = Conversor()
 
-assembly_code = """ADD R1, R2, #3
-AND R3, R4, #7
-LD R5, A
-LEA R6, B
-JMP R7
-TRAP #2
+assembly_code = """
+START: ADD R1, R2, #3
+       AND R3, R4, #7
+       LD R5, DATA
+       LEA R6, END
+       LDR R0, R6, #-1
+       STR R1, R6, #2
+       BR START
+       NOT R2, R1
+       JSR SUBRUTINA
+       RET
+SUBRUTINA: STI R7, SAVE_R7
+           LDI R7, RESTORE_R7
+           RTI
+DATA:  .FILL x3000
+SAVE_R7: .BLKW 1
+RESTORE_R7: .FILL x0000
+END:   TRAP x25
 """
 
 binary_code = conv.assembly_to_binary(assembly_code)
 print("Ensamblador a Binario:\n", binary_code)
 
-# Convertir binario a ensamblador (simulado)
 binary_input = binary_code.strip()
 assembly_output = conv.binary_to_assembly(binary_input)
 print("\nBinario a Ensamblador:\n", assembly_output)
