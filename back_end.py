@@ -4,228 +4,272 @@ class Conversor:
             "ADD": "0001", "AND": "0101", "BR": "0000", "JMP": "1100",
             "JSR": "0100", "LD": "0010", "LDI": "1010", "LDR": "0110",
             "LEA": "1110", "NOT": "1001", "RET": "1100", "RTI": "1000",
-            "ST": "0011", "STI": "1011", "STR": "0111", "TRAP": "1111",
-            "reserved": "1101"
+            "ST": "0011", "STI": "1011", "STR": "0111", "TRAP": "1111"
         }
-        self.registers = {f"R{i}": f"{i:03b}" for i in range(8)}  # R0-R7 en binario
-        self.reverse_registers = {f"{i:03b}": f"R{i}" for i in range(8)}  # Binario a R0-R7
+        self.registers = {f"R{i}": f"{i:03b}" for i in range(8)}
+        self.reverse_registers = {v: k for k, v in self.registers.items()}
         self.condition_bits = {
             "": "000", "n": "100", "z": "010", "p": "001",
             "nz": "110", "np": "101", "zp": "011", "nzp": "111"
         }
+        self.pseudo_ops = [".ORIG", ".END", ".FILL", ".BLKW", ".HALT", "HALT"]
+        self.trap_vectors = {
+            0x20: ".GETC", 0x21: ".OUT", 0x22: ".PUTS",
+            0x23: ".IN", 0x24: ".PUTSP", 0x25: ".HALT"
+        }
+        self.reverse_trap_vectors = {v: k for k, v in self.trap_vectors.items()}
+        self.orig_labels = {}
 
-    def parse_labels(self, assembly_code):
+    def assembly_to_binary(self, assembly_code):
         lines = assembly_code.strip().split('\n')
+        result = []
         label_addresses = {}
-        instruction_index = 0
+        current_address = 0
+        orig_address = None
 
+        # First pass: collect label addresses
         for line in lines:
             line = line.strip()
             if not line or line.startswith(';'):
                 continue
-            if ":" in line:
-                label, instruction = line.split(":", 1)
-                label_addresses[label.strip()] = instruction_index
-                if instruction.strip():
-                    instruction_index += 1
-            else:
-                instruction_index += 1
+            if ':' in line:
+                label, instruction = line.split(':', 1)
+                self.orig_labels[current_address] = label.strip()
+                label_addresses[label.strip()] = current_address
+                line = instruction.strip()
+            parts = line.replace(',', '').split()
+            opcode = parts[0].upper()
 
-        return label_addresses
+            if opcode == '.ORIG':
+                orig_address = int(parts[1][1:], 16)
+                current_address = orig_address
+            elif opcode == '.END':
+                break
+            elif opcode == '.FILL':
+                current_address += 1
+            elif opcode == '.BLKW':
+                current_address += int(parts[1])
+            elif opcode not in self.pseudo_ops:
+                current_address += 1
 
-    def assembly_to_binary(self, assembly_code):
-        label_addresses = self.parse_labels(assembly_code)
-        lines = assembly_code.strip().split('\n')
-        result = []
-
-        for line_num, line in enumerate(lines):
+        # Second pass: convert to binary
+        current_address = orig_address if orig_address is not None else 0
+        for line in lines:
             line = line.strip()
-            if not line or line.startswith(';') or ":" in line:
+            if not line or line.startswith(';'):
+                continue
+            if ':' in line:
+                _, instruction = line.split(':', 1)
+                line = instruction.strip()
+            if not line:
                 continue
 
             parts = line.replace(',', '').split()
-            opcode = parts[0]
-            bin_instr = ""
+            opcode = parts[0].upper()
 
-            if opcode.startswith("BR"):
+            if opcode == '.ORIG':
+                result.append(f"{int(parts[1][1:], 16):016b}")
+            elif opcode == '.END':
+                break
+            elif opcode == '.FILL':
+                value = int(parts[1][1:], 16) if parts[1].startswith('x') else int(parts[1])
+                result.append(f"{value & 0xFFFF:016b}")
+            elif opcode == '.BLKW':
+                count = int(parts[1])
+                result.extend(["0" * 16] * count)
+            elif opcode in ['.HALT', 'HALT']:
+                result.append(f"{self.keys['TRAP']}0000{0x25:08b}")
+            elif opcode.startswith("BR"):
                 conditions = opcode[2:].lower()
-                if conditions not in self.condition_bits:
-                    raise ValueError(f"Condiciones no soportadas en BR: {conditions}")
-                cond_bits = self.condition_bits[conditions]
-
-                label = parts[1]
-                if label not in label_addresses:
-                    raise ValueError(f"Etiqueta no encontrada: {label}")
-                offset = label_addresses[label] - len(result) - 1
-                if offset < -256 or offset > 255:
-                    raise ValueError(f"Offset fuera de rango para BR: {offset}")
-                if offset < 0:
-                    offset = (1 << 9) + offset
-                offset = f"{offset:09b}"
-                bin_instr = f"{self.keys['BR']}{cond_bits}{offset}"
-
+                cond_bits = self.condition_bits.get(conditions, "000")
+                offset = self.calculate_offset(parts[1], label_addresses, current_address, 9)
+                result.append(f"{self.keys['BR']}{cond_bits}{offset:09b}")
             elif opcode in ["ADD", "AND"]:
-                DR = self.registers[parts[1]]
-                SR1 = self.registers[parts[2]]
-                if "#" in parts[3]:
+                DR, SR1 = self.registers[parts[1]], self.registers[parts[2]]
+                if parts[3].startswith("#"):
                     imm5 = int(parts[3][1:])
-                    if imm5 < 0:
-                        imm5 = (1 << 5) + imm5
-                    imm5 = f"{imm5:05b}"
-                    bin_instr = f"{self.keys[opcode]}{DR}{SR1}1{imm5}"
+                    result.append(f"{self.keys[opcode]}{DR}{SR1}1{imm5 & 0x1F:05b}")
                 else:
                     SR2 = self.registers[parts[3]]
-                    bin_instr = f"{self.keys[opcode]}{DR}{SR1}000{SR2}"
-
+                    result.append(f"{self.keys[opcode]}{DR}{SR1}000{SR2}")
             elif opcode in ["LD", "ST", "LEA", "LDI", "STI"]:
                 DR = self.registers[parts[1]]
-                label = parts[2]
-                if label not in label_addresses:
-                    raise ValueError(f"Etiqueta no encontrada: {label}")
-                offset = label_addresses[label] - len(result) - 1
-                if offset < -256 or offset > 255:
-                    raise ValueError(f"Offset fuera de rango para {opcode}: {offset}")
-                if offset < 0:
-                    offset = (1 << 9) + offset
-                offset = f"{offset:09b}"
-                bin_instr = f"{self.keys[opcode]}{DR}{offset}"
-
+                offset = self.calculate_offset(parts[2], label_addresses, current_address, 9)
+                result.append(f"{self.keys[opcode]}{DR}{offset:09b}")
             elif opcode in ["LDR", "STR"]:
                 DR = self.registers[parts[1]]
                 BaseR = self.registers[parts[2]]
-                offset = int(parts[3][1:]) if parts[3].startswith('#') else int(parts[3])
-                if offset < -32 or offset > 31:
-                    raise ValueError(f"Offset fuera de rango para {opcode}: {offset}")
-                if offset < 0:
-                    offset = (1 << 6) + offset
-                offset = f"{offset:06b}"
-                bin_instr = f"{self.keys[opcode]}{DR}{BaseR}{offset}"
-
-            elif opcode == "JMP":
-                baseR = self.registers[parts[1]]
-                bin_instr = f"{self.keys[opcode]}000{baseR}000000"
-
+                offset6 = int(parts[3][1:])
+                result.append(f"{self.keys[opcode]}{DR}{BaseR}{offset6 & 0x3F:06b}")
+            elif opcode in ["JMP", "RET"]:
+                if opcode == "RET":
+                    BaseR = "111"  # R7 for RET
+                else:
+                    BaseR = self.registers[parts[1]]
+                result.append(f"{self.keys['JMP']}000{BaseR}000000")
             elif opcode == "JSR":
-                if parts[1] in self.registers:  # JSRR
-                    baseR = self.registers[parts[1]]
-                    bin_instr = f"{self.keys[opcode]}000{baseR}000000"
+                if len(parts) > 1 and parts[1] in self.registers:  # JSRR
+                    BaseR = self.registers[parts[1]]
+                    result.append(f"{self.keys['JSR']}000{BaseR}000000")
                 else:  # JSR
-                    label = parts[1]
-                    if label not in label_addresses:
-                        raise ValueError(f"Etiqueta no encontrada: {label}")
-                    offset = label_addresses[label] - len(result) - 1
-                    if offset < -1024 or offset > 1023:
-                        raise ValueError(f"Offset fuera de rango para JSR: {offset}")
-                    if offset < 0:
-                        offset = (1 << 11) + offset
-                    offset = f"{offset:011b}"
-                    bin_instr = f"{self.keys[opcode]}1{offset}"
-
-            elif opcode == "TRAP":
-                trap_vector = int(parts[1][1:], 16) if parts[1].startswith("x") else int(parts[1])
-                if trap_vector < 0 or trap_vector > 255:
-                    raise ValueError("El vector TRAP debe estar en el rango [0, 255].")
-                bin_instr = f"{self.keys['TRAP']}0000{trap_vector:08b}"
-
+                    offset = self.calculate_offset(parts[1], label_addresses, current_address, 11)
+                    result.append(f"{self.keys['JSR']}1{offset:011b}")
+            elif opcode == "TRAP" or opcode in self.reverse_trap_vectors:
+                if opcode == "TRAP":
+                    trapvect8 = int(parts[1][1:], 16)
+                else:
+                    trapvect8 = self.reverse_trap_vectors[opcode]
+                result.append(f"{self.keys['TRAP']}0000{trapvect8:08b}")
             elif opcode == "NOT":
-                DR = self.registers[parts[1]]
-                SR = self.registers[parts[2]]
-                bin_instr = f"{self.keys[opcode]}{DR}{SR}111111"
-
-            elif opcode in ["RET", "RTI"]:
-                bin_instr = f"{self.keys[opcode]}000000000000"
-
+                DR, SR = self.registers[parts[1]], self.registers[parts[2]]
+                result.append(f"{self.keys[opcode]}{DR}{SR}111111")
+            elif opcode == "RTI":
+                result.append(f"{self.keys[opcode]}000000000000")
             else:
                 raise ValueError(f"Opcode no soportado: {opcode}")
 
-            bin_instr = bin_instr.ljust(16, '0')
-            result.append(bin_instr)
+            if opcode not in self.pseudo_ops or opcode in ['.HALT', 'HALT']:
+                current_address += 1
+
         return "\n".join(result)
 
     def binary_to_assembly(self, binary_code):
         lines = binary_code.strip().split('\n')
         result = []
-        for line_num, line in enumerate(lines):
+        address_to_label = {}
+        current_address = None
+
+        # First pass: identify potential labels
+        for i, line in enumerate(lines):
+            if not line.strip():
+                continue
+            if current_address is None:
+                current_address = int(line, 2)
+                continue
+            
+            if current_address in self.orig_labels:
+                address_to_label[current_address] = self.orig_labels[current_address]
+            
+            opcode_bin = line[:4]
+            if opcode_bin == self.keys['BR']:
+                offset = self.sign_extend(int(line[7:], 2), 9)
+                target_address = current_address + 1 + offset
+                if target_address not in address_to_label:
+                    address_to_label[target_address] = f"LABEL_{target_address:X}"
+            elif opcode_bin == self.keys['JSR'] and line[4] == '1':
+                offset = self.sign_extend(int(line[5:], 2), 11)
+                target_address = current_address + 1 + offset
+                if target_address not in address_to_label:
+                    address_to_label[target_address] = f"LABEL_{target_address:X}"
+            current_address += 1
+
+        # Second pass: convert to assembly
+        current_address = None
+        for i, line in enumerate(lines):
             if not line.strip():
                 continue
             
             line = line.ljust(16, '0')
+            if current_address is None:
+                current_address = int(line, 2)
+                result.append(f".ORIG x{current_address:04X}")
+                continue
+
+            if current_address in address_to_label:
+                result.append(f"{address_to_label[current_address]}:")
+
             opcode_bin = line[:4]
             opcode = next((key for key, value in self.keys.items() if value == opcode_bin), None)
 
             if not opcode:
-                raise ValueError(f"Binario no reconocido: {line}")
-
-            if opcode == "BR":
+                value = int(line, 2)
+                result.append(f".FILL x{value:04X}")
+            elif opcode == "BR":
                 condition_bits = line[4:7]
                 condition = next((key for key, value in self.condition_bits.items() if value == condition_bits), "")
-                offset = int(line[7:], 2)
-                if offset & 0b100000000:
-                    offset -= 512
-                result.append(f"BR{condition} LABEL_{line_num + offset + 1}")
-
-            elif opcode == "TRAP":
-                trap_vector = int(line[8:], 2)
-                result.append(f"TRAP x{trap_vector:02X}")
-
-            elif opcode == "NOT":
-                DR = self.reverse_registers[line[4:7]]
-                SR = self.reverse_registers[line[7:10]]
-                result.append(f"NOT {DR}, {SR}")
-
+                offset = self.sign_extend(int(line[7:], 2), 9)
+                target_address = current_address + 1 + offset
+                result.append(f"BR{condition.upper()} {address_to_label.get(target_address, f'x{target_address:04X}')}")
             elif opcode in ["ADD", "AND"]:
                 DR = self.reverse_registers[line[4:7]]
                 SR1 = self.reverse_registers[line[7:10]]
                 if line[10] == "1":
-                    imm5 = int(line[11:], 2)
-                    if imm5 & 0b10000:
-                        imm5 -= 32
+                    imm5 = self.sign_extend(int(line[11:], 2), 5)
                     result.append(f"{opcode} {DR}, {SR1}, #{imm5}")
                 else:
                     SR2 = self.reverse_registers[line[13:]]
                     result.append(f"{opcode} {DR}, {SR1}, {SR2}")
-
             elif opcode in ["LD", "ST", "LEA", "LDI", "STI"]:
                 DR = self.reverse_registers[line[4:7]]
-                offset = int(line[7:], 2)
-                if offset & 0b100000000:
-                    offset -= 512
-                result.append(f"{opcode} {DR}, LABEL_{line_num + offset + 1}")
-
+                offset = self.sign_extend(int(line[7:], 2), 9)
+                target_address = current_address + 1 + offset
+                if target_address in address_to_label:
+                    result.append(f"{opcode} {DR}, {address_to_label[target_address]}")
+                else:
+                    result.append(f"{opcode} {DR}, x{target_address:04X}")
             elif opcode in ["LDR", "STR"]:
                 DR = self.reverse_registers[line[4:7]]
                 BaseR = self.reverse_registers[line[7:10]]
-                offset = int(line[10:], 2)
-                if offset & 0b100000:
-                    offset -= 64
-                result.append(f"{opcode} {DR}, {BaseR}, #{offset}")
-
+                offset6 = self.sign_extend(int(line[10:], 2), 6)
+                result.append(f"{opcode} {DR}, {BaseR}, #{offset6}")
             elif opcode == "JMP":
-                baseR = self.reverse_registers[line[7:10]]
-                result.append(f"JMP {baseR}")
-
+                if line[7:10] == "111":
+                    result.append("RET")
+                else:
+                    BaseR = self.reverse_registers[line[7:10]]
+                    result.append(f"JMP {BaseR}")
             elif opcode == "JSR":
                 if line[4] == "0":  # JSRR
-                    baseR = self.reverse_registers[line[7:10]]
-                    result.append(f"JSRR {baseR}")
+                    BaseR = self.reverse_registers[line[7:10]]
+                    result.append(f"JSRR {BaseR}")
                 else:  # JSR
-                    offset = int(line[5:], 2)
-                    if offset & 0b10000000000:
-                        offset -= 2048
-                    result.append(f"JSR LABEL_{line_num + offset + 1}")
-
-            elif opcode in ["RET", "RTI"]:
-                result.append(opcode)
-
+                    offset = self.sign_extend(int(line[5:], 2), 11)
+                    target_address = current_address + 1 + offset
+                    if target_address in address_to_label:
+                        result.append(f"JSR {address_to_label[target_address]}")
+                    else:
+                        result.append(f"JSR x{target_address:04X}")
+            elif opcode == "TRAP":
+                trapvect8 = int(line[8:], 2)
+                if trapvect8 in self.trap_vectors:
+                    result.append(f"{self.trap_vectors[trapvect8]}")
+                else:
+                    result.append(f"TRAP x{trapvect8:02X}")
+            elif opcode == "NOT":
+                DR = self.reverse_registers[line[4:7]]
+                SR = self.reverse_registers[line[7:10]]
+                result.append(f"NOT {DR}, {SR}")
+            elif opcode == "RTI":
+                result.append("RTI")
             else:
                 raise ValueError(f"Opcode no implementado: {opcode}")
 
+            current_address += 1
+
         return "\n".join(result)
 
-# Prueba del código
+    def calculate_offset(self, label_or_value, label_addresses, current_address, bits):
+        if label_or_value.startswith("#"):
+            return int(label_or_value[1:]) & ((1 << bits) - 1)
+        if label_or_value.startswith("x"):
+            return int(label_or_value[1:], 16) - (current_address + 1) & ((1 << bits) - 1)
+        if label_or_value not in label_addresses:
+            return 0
+        offset = label_addresses[label_or_value] - current_address - 1
+        if offset < -(1 << (bits - 1)) or offset >= (1 << (bits - 1)):
+            raise ValueError(f"Offset fuera de rango: {offset}")
+        return offset & ((1 << bits) - 1)
+
+    def sign_extend(self, value, bits):
+        if value & (1 << (bits - 1)):
+            return value - (1 << bits)
+        return value
+
+# Ejemplo de uso
 conv = Conversor()
 
 assembly_code = """
+.ORIG x3000
 START: ADD R1, R2, #3
        AND R3, R4, #7
        LD R5, DATA
@@ -245,12 +289,10 @@ ZERO:    AND R2, R2, #0
 DONE:   JSR SUBRUTINA
         RET
 SUBRUTINA: STI R7, SAVE_R7
-           LDI R7, RESTORE_R7
            RTI
 DATA:  .FILL x3000
 SAVE_R7: .BLKW 1
-RESTORE_R7: .FILL x0000
-END:   TRAP x25
+.HALT
 """
 
 binary_code = conv.assembly_to_binary(assembly_code)
