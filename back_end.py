@@ -181,68 +181,72 @@ class Conversor:
             opcode_bin = line[:4]
             opcode = next((key for key, value in self.keys.items() if value == opcode_bin), None)
 
+            instruction = ""
             if not opcode:
                 value = int(line, 2)
-                result.append(f".FILL x{value:04X}")
+                instruction = f".FILL x{value:04X}"
             elif opcode == "BR":
                 condition_bits = line[4:7]
                 condition = next((key for key, value in self.condition_bits.items() if value == condition_bits), "")
                 offset = self.sign_extend(int(line[7:], 2), 9)
                 target_address = current_address + 1 + offset
-                result.append(f"BR{condition.upper()} {address_to_label.get(target_address, f'x{target_address:04X}')}")
+                instruction = f"BR{condition.upper()} {address_to_label.get(target_address, f'x{target_address:04X}')}"
             elif opcode in ["ADD", "AND"]:
                 DR = self.reverse_registers[line[4:7]]
                 SR1 = self.reverse_registers[line[7:10]]
                 if line[10] == "1":
                     imm5 = self.sign_extend(int(line[11:], 2), 5)
-                    result.append(f"{opcode} {DR}, {SR1}, #{imm5}")
+                    instruction = f"{opcode} {DR}, {SR1}, #{imm5}"
                 else:
                     SR2 = self.reverse_registers[line[13:]]
-                    result.append(f"{opcode} {DR}, {SR1}, {SR2}")
+                    instruction = f"{opcode} {DR}, {SR1}, {SR2}"
             elif opcode in ["LD", "ST", "LEA", "LDI", "STI"]:
                 DR = self.reverse_registers[line[4:7]]
                 offset = self.sign_extend(int(line[7:], 2), 9)
                 target_address = current_address + 1 + offset
                 if target_address in address_to_label:
-                    result.append(f"{opcode} {DR}, {address_to_label[target_address]}")
+                    instruction = f"{opcode} {DR}, {address_to_label[target_address]}"
                 else:
-                    result.append(f"{opcode} {DR}, x{target_address:04X}")
+                    instruction = f"{opcode} {DR}, x{target_address:04X}"
             elif opcode in ["LDR", "STR"]:
                 DR = self.reverse_registers[line[4:7]]
                 BaseR = self.reverse_registers[line[7:10]]
                 offset6 = self.sign_extend(int(line[10:], 2), 6)
-                result.append(f"{opcode} {DR}, {BaseR}, #{offset6}")
+                instruction = f"{opcode} {DR}, {BaseR}, #{offset6}"
             elif opcode == "JMP":
                 if line[7:10] == "111":
-                    result.append("RET")
+                    instruction = "RET"
                 else:
                     BaseR = self.reverse_registers[line[7:10]]
-                    result.append(f"JMP {BaseR}")
+                    instruction = f"JMP {BaseR}"
             elif opcode == "JSR":
                 if line[4] == "0":  # JSRR
                     BaseR = self.reverse_registers[line[7:10]]
-                    result.append(f"JSRR {BaseR}")
+                    instruction = f"JSRR {BaseR}"
                 else:  # JSR
                     offset = self.sign_extend(int(line[5:], 2), 11)
                     target_address = current_address + 1 + offset
                     if target_address in address_to_label:
-                        result.append(f"JSR {address_to_label[target_address]}")
+                        instruction = f"JSR {address_to_label[target_address]}"
                     else:
-                        result.append(f"JSR x{target_address:04X}")
+                        instruction = f"JSR x{target_address:04X}"
             elif opcode == "TRAP":
                 trapvect8 = int(line[8:], 2)
                 if trapvect8 in self.trap_vectors:
-                    result.append(f"{self.trap_vectors[trapvect8]}")
+                    instruction = f"{self.trap_vectors[trapvect8]}"
                 else:
-                    result.append(f"TRAP x{trapvect8:02X}")
+                    instruction = f"TRAP x{trapvect8:02X}"
             elif opcode == "NOT":
                 DR = self.reverse_registers[line[4:7]]
                 SR = self.reverse_registers[line[7:10]]
-                result.append(f"NOT {DR}, {SR}")
+                instruction = f"NOT {DR}, {SR}"
             elif opcode == "RTI":
-                result.append("RTI")
+                instruction = "RTI"
             else:
                 raise ValueError(f"Opcode no implementado: {opcode}")
+
+            if instruction:
+                result.append(f"\t{instruction}")
 
             current_address += 1
 
@@ -270,7 +274,7 @@ conv = Conversor()
 
 assembly_code = """
 .ORIG x3000
-START: ADD R1, R2, #3
+STARTS: ADD R1, R2, #3
        AND R3, R4, #7
        LD R5, DATA
        LEA R6, END
@@ -281,11 +285,11 @@ START: ADD R1, R2, #3
        BRz ZERO
        BRnzp DONE
 POSITIVE: ADD R2, R2, #1
-          BR START
+          BR STARTS
 NEGATIVE: ADD R2, R2, #-1
-          BR START
+          BR STARTS
 ZERO:    AND R2, R2, #0
-         BR START
+         BR STARTS
 DONE:   JSR SUBRUTINA
         RET
 SUBRUTINA: STI R7, SAVE_R7
