@@ -69,9 +69,50 @@ class Application(Frame):
         #space 2 in to space1
         space2 = Frame(space1, bg="grey")
         space2.pack(side = 'right',expand = True,fill='both',padx = 2, pady = 2,ipadx = 0)
+        space2_1 = Frame(space2, bg="grey")
+        space2_1.pack(side = 'top',expand = True,fill='both',padx = 0, pady = 0,ipadx = 0,ipady= 0)
+        space2_1_1 = Frame(space2_1, bg="grey")
+        space2_1_1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
+
+        label = Label(space2_1_1, text=" REGISTERS ", foreground="white", background="#4B4B4B")
+        label.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
+
+        space2_1_2=Frame(space2, bg="grey")
+        space2_1_2.pack(side = 'bottom',expand = True,fill='both',padx = 0, pady = 0,ipadx = 0,ipady=0)
         #text entry space
-        text_widget3 = Text(space2, width=0, height=20, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
-        text_widget3.pack(side = 'top',expand = True,fill='both',padx = 2, pady = 2,ipadx = 10)
+
+        space2_1_2.text_widget = Text(
+        space2, 
+        width=0, 
+        height=20, 
+        font=("Consolas", 10), 
+        fg="white", 
+        bg="#3E3E3E", 
+        insertbackground="white",
+        wrap="word"
+        )
+        space2_1_2.text_widget.pack(side='top', expand=True, fill='both', padx=2, pady=2, ipadx=10)
+        space2_1_2.text_widget.insert("end", "fard")
+
+        # Disable user edits (if needed)
+        space2_1_2.text_widget.config(state="disabled")
+
+        #space 2_2 in space2
+        space2_2 = Frame(space2, bg="grey")
+        space2_2.pack(side = 'top',expand = True,fill='both',padx = 0, pady =0 ,ipadx = 0)
+        space2_2_1 = Frame(space2_2, bg="grey")
+        space2_2_1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
+
+        entry69 = Label(space2_2_1, text=" CONSOLE ", foreground="white", background="#4B4B4B")
+        entry69.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
+
+        space2_2_2=Frame(space2, bg="grey")
+        space2_2_2.pack(side = 'bottom',expand = True,fill='both',padx = 0, pady = 0,ipadx = 0,ipady=0)
+
+        #text entry space
+
+        text_widget1 = Text(space2_2_2, width=20, height=20, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
+        text_widget1.pack(side = 'bottom',expand = True,fill='both',padx = 2, pady = 2,ipadx = 20)
 
         return space2
 
@@ -80,10 +121,49 @@ class Application(Frame):
         #space 3 in to space1
         space3 = Frame(space1, bg="grey")
         space3.pack(side = 'left',expand = True,fill='both',padx = 2, pady = 2,ipadx = 0)
+
+        #space 3_1 in space3
+        space3_1 = Frame(space3, bg="grey")
+        space3_1.pack(side = 'top',expand = True,fill='both',padx = 0, pady = 0,ipadx = 0,ipady= 0)
+        space3_1_1 = Frame(space3_1, bg="grey")
+        space3_1_1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
+
+        entry1 = Label(space3_1_1, text=" ASSEMBLY ", foreground="white", background="#4B4B4B")
+        entry1.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
+        entry2 = Button(space3_1_1, text="TO BINARY", foreground="white", background="#4B4B4B")
+        entry2.grid(row=0, column=2, padx=2, pady=2, sticky='wnse')
+
+        spacer = Label(space3_1_1, text="                          ", foreground="grey", background="grey")
+        spacer.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
+
+        space3_1_2=Frame(space3, bg="grey")
+        space3_1_2.pack(side = 'bottom',expand = True,fill='both',padx = 0, pady = 0,ipadx = 0,ipady=0)
+
         #text entry space
-        text_widget = Text(space3, width=10, height=20, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
-        text_widget.pack(side = 'top',expand = True,fill='both',padx = 2, pady = 2,ipadx = 20)
-        text_widget1 = Text(space3, width=20, height=20, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
+        text_widget = Text(space3_1_2, width=10, height=15, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
+        text_widget.pack(side = 'bottom',expand = True,fill='both',padx = 2, pady = 2,ipadx = 20,)
+
+        #space 3_2 in space3
+        space3_2 = Frame(space3, bg="grey")
+        space3_2.pack(side = 'bottom',expand = True,fill='both',padx = 0, pady =0 ,ipadx = 0)
+        space3_2_1 = Frame(space3_2, bg="grey")
+        space3_2_1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
+
+        entry3 = Label(space3_2_1, text=" BINARY ", foreground="white", background="#4B4B4B")
+        entry3.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
+        entry4 = Button(space3_2_1, text="TO ASSEMBLY", foreground="white", background="#4B4B4B")
+        entry4.grid(row=0, column=2, padx=2, pady=2, sticky='wnse')
+
+        spacer = Label(space3_2_1, text="                             ", foreground="grey", background="grey")
+        spacer.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
+
+
+        space3_2_2=Frame(space3, bg="grey")
+        space3_2_2.pack(side = 'bottom',expand = True,fill='both',padx = 0, pady = 0,ipadx = 0,ipady=0)
+
+        #text entry space
+
+        text_widget1 = Text(space3_2_2, width=20, height=20, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
         text_widget1.pack(side = 'bottom',expand = True,fill='both',padx = 2, pady = 2,ipadx = 20)
 
         return space3
