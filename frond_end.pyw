@@ -1,41 +1,29 @@
 from tkinter import *
 from tkinter import messagebox
+from back_end import Conversor  # Assuming the Conversor class is in a file named back_end.py
 
 class Application(Frame):
     def __init__(self, master=None):
-
         super().__init__(master, bg="#4B4B4B")
         self.master = master
         self.pack(expand=True, fill="both")
+        self.conversor = Conversor()  # Instance of the Conversor class
         self.create_layout()
 
     def create_layout(self):
-         
         icon_image_path = 'image_icon.gif'
 
         try:
             tk_icon = PhotoImage(file=icon_image_path)
             self.master.iconphoto(False, tk_icon)
-
-        except Exception :
-            messagebox.showerror("Error", f"Error al cargar el ícono:")
-
+        except Exception:
+            messagebox.showerror("Error", "Error al cargar el ícono")
 
         space0 = self.create_space0()
         space1 = self.create_space1(space0)
         space2 = self.create_space2(space1)
         space3 = self.create_space3(space1)
 
-        #entry = Entry(self.space2, width=16, high = 16, textvariable="entry_var1", font=("Consolas", 9), fg="white", bg="#3E3E3E", insertbackground="white")
-        #entry.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
-
-        #entry = Entry(self.space3, width=16, textvariable="entry_var1", font=("Consolas", 9), fg="white", bg="#3E3E3E", insertbackground="white")
-        #entry.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
-   
-
-        #space3 = Frame(space0, bg="lightgray")
-        #space3.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
-        
     def create_space0(self):
         space0 = Frame(self, bg="#3E3E3E")
         space0.grid(row=0, column=0, padx=5, pady=5, sticky='nsew')
@@ -47,8 +35,7 @@ class Application(Frame):
 
         return space0
     
-    def create_space1(self,space0):
-
+    def create_space1(self, space0):
         self.space1 = Frame(space0, bg="grey")
         self.space1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
         entry = Label(self.space1, text="reset", foreground="white", background="#4B4B4B")
@@ -65,112 +52,151 @@ class Application(Frame):
 
         return space1
     
-    def create_space2(self,space1):
-        #space 2 in to space1
+    def create_space2(self, space1):
         space2 = Frame(space1, bg="grey")
-        space2.pack(side = 'right',expand = True,fill='both',padx = 2, pady = 2,ipadx = 0)
+        space2.pack(side='right', expand=True, fill='both', padx=2, pady=2, ipadx=0)
         space2_1 = Frame(space2, bg="grey")
-        space2_1.pack(side = 'top',expand = True,fill='both',padx = 0, pady = 0,ipadx = 0,ipady= 0)
+        space2_1.pack(side='top', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
         space2_1_1 = Frame(space2_1, bg="grey")
         space2_1_1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
 
         label = Label(space2_1_1, text=" REGISTERS ", foreground="white", background="#4B4B4B")
         label.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
+        entry67 = Button(space2_1_1, text="STEP TO STEP", foreground="white", background="#4B4B4B",) #command=self.assembly_to_binary)
+        entry67.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
+        entry68 = Button(space2_1_1, text="RUN ALL", foreground="white", background="#4B4B4B",) #command=self.assembly_to_binary)
+        entry68.grid(row=0, column=2, padx=2, pady=2, sticky='wnse')
 
-        space2_1_2=Frame(space2, bg="grey")
-        space2_1_2.pack(side = 'bottom',expand = True,fill='both',padx = 0, pady = 0,ipadx = 0,ipady=0)
-        #text entry space
+        space2_1_2 = Frame(space2, bg="grey")
+        space2_1_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
 
-        space2_1_2.text_widget = Text(
-        space2, 
-        width=0, 
-        height=20, 
-        font=("Consolas", 10), 
-        fg="white", 
-        bg="#3E3E3E", 
-        insertbackground="white",
-        wrap="word"
+        self.registers_text = Text(
+            space2, 
+            width=0, 
+            height=20, 
+            font=("Consolas", 10), 
+            fg="white", 
+            bg="#3E3E3E", 
+            insertbackground="white",
+            wrap="word"
         )
-        space2_1_2.text_widget.pack(side='top', expand=True, fill='both', padx=2, pady=2, ipadx=10)
-        space2_1_2.text_widget.insert("end", "fard")
+        self.registers_text.pack(side='top', expand=True, fill='both', padx=2, pady=2, ipadx=10)
+        self.registers_text.insert("end", "R0: 0000\nR1: 0000\nR2: 0000\nR3: 0000\nR4: 0000\nR5: 0000\nR6: 0000\nR7: 0000")
+        self.registers_text.config(state="disabled")
 
-        # Disable user edits (if needed)
-        space2_1_2.text_widget.config(state="disabled")
-
-        #space 2_2 in space2
         space2_2 = Frame(space2, bg="grey")
-        space2_2.pack(side = 'top',expand = True,fill='both',padx = 0, pady =0 ,ipadx = 0)
+        space2_2.pack(side='top', expand=True, fill='both', padx=0, pady=0, ipadx=0)
         space2_2_1 = Frame(space2_2, bg="grey")
         space2_2_1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
 
         entry69 = Label(space2_2_1, text=" CONSOLE ", foreground="white", background="#4B4B4B")
         entry69.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
+        
 
-        space2_2_2=Frame(space2, bg="grey")
-        space2_2_2.pack(side = 'bottom',expand = True,fill='both',padx = 0, pady = 0,ipadx = 0,ipady=0)
+        space2_2_2 = Frame(space2, bg="grey")
+        space2_2_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
 
-        #text entry space
+        self.console_text = Text(space2_2_2, width=20, height=20, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
+        self.console_text.pack(side='bottom', expand=True, fill='both', padx=2, pady=2, ipadx=20)
 
-        text_widget1 = Text(space2_2_2, width=20, height=20, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
-        text_widget1.pack(side = 'bottom',expand = True,fill='both',padx = 2, pady = 2,ipadx = 20)
 
         return space2
 
-    def create_space3(self,space1):
-        
-        #space 3 in to space1
+    def create_space3(self, space1):
         space3 = Frame(space1, bg="grey")
-        space3.pack(side = 'left',expand = True,fill='both',padx = 2, pady = 2,ipadx = 0)
+        space3.pack(side='left', expand=True, fill='both', padx=2, pady=2, ipadx=0)
 
-        #space 3_1 in space3
+        # Assembly section
         space3_1 = Frame(space3, bg="grey")
-        space3_1.pack(side = 'top',expand = True,fill='both',padx = 0, pady = 0,ipadx = 0,ipady= 0)
+        space3_1.pack(side='top', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
         space3_1_1 = Frame(space3_1, bg="grey")
         space3_1_1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
 
         entry1 = Label(space3_1_1, text=" ASSEMBLY ", foreground="white", background="#4B4B4B")
         entry1.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
-        entry2 = Button(space3_1_1, text="TO BINARY", foreground="white", background="#4B4B4B")
+        entry2 = Button(space3_1_1, text="TO BINARY", foreground="white", background="#4B4B4B", command=self.assembly_to_binary)
         entry2.grid(row=0, column=2, padx=2, pady=2, sticky='wnse')
 
         spacer = Label(space3_1_1, text="                          ", foreground="grey", background="grey")
         spacer.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
 
-        space3_1_2=Frame(space3, bg="grey")
-        space3_1_2.pack(side = 'bottom',expand = True,fill='both',padx = 0, pady = 0,ipadx = 0,ipady=0)
+        space3_1_2 = Frame(space3, bg="grey")
+        space3_1_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
 
-        #text entry space
-        text_widget = Text(space3_1_2, width=10, height=15, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
-        text_widget.pack(side = 'bottom',expand = True,fill='both',padx = 2, pady = 2,ipadx = 20,)
+        self.assembly_text = Text(space3_1_2, width=10, height=15, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
+        self.assembly_text.pack(side='bottom', expand=True, fill='both', padx=2, pady=2, ipadx=20)
 
-        #space 3_2 in space3
+        # Binary section
         space3_2 = Frame(space3, bg="grey")
-        space3_2.pack(side = 'bottom',expand = True,fill='both',padx = 0, pady =0 ,ipadx = 0)
+        space3_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0)
         space3_2_1 = Frame(space3_2, bg="grey")
         space3_2_1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
 
         entry3 = Label(space3_2_1, text=" BINARY ", foreground="white", background="#4B4B4B")
         entry3.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
-        entry4 = Button(space3_2_1, text="TO ASSEMBLY", foreground="white", background="#4B4B4B")
+        entry4 = Button(space3_2_1, text="TO ASSEMBLY", foreground="white", background="#4B4B4B", command=self.binary_to_assembly)
         entry4.grid(row=0, column=2, padx=2, pady=2, sticky='wnse')
 
         spacer = Label(space3_2_1, text="                             ", foreground="grey", background="grey")
         spacer.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
 
+        space3_2_2 = Frame(space3, bg="grey")
+        space3_2_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
 
-        space3_2_2=Frame(space3, bg="grey")
-        space3_2_2.pack(side = 'bottom',expand = True,fill='both',padx = 0, pady = 0,ipadx = 0,ipady=0)
-
-        #text entry space
-
-        text_widget1 = Text(space3_2_2, width=20, height=20, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
-        text_widget1.pack(side = 'bottom',expand = True,fill='both',padx = 2, pady = 2,ipadx = 20)
+        self.binary_text = Text(space3_2_2, width=20, height=20, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
+        self.binary_text.pack(side='bottom', expand=True, fill='both', padx=2, pady=2, ipadx=20)
 
         return space3
+    
+    def binary_to_assembly(self):
+        assembly_code = self.assembly_text.get("1.0", END).strip()
+        self.update_console(f"Código Assembly recibido: {assembly_code}")
+        if not assembly_code:
+            self.update_console("Error: El área de texto de Assembly está vacía.")
+            return
+        try:
+            # Validate input: Check if it's assembly code
+            if any(opcode in assembly_code for opcode in self.conversor.keys):
+                binary_code  = self.conversor.assembly_to_binary(assembly_code)
+                self.binary_text.delete("1.0", END)
+                self.binary_text.insert(END, binary_code)
+                self.update_console("Conversión de Assembly a Binario completada.")
+            else:
+                raise ValueError("El input no parece ser código Assembly válido.")
+        except Exception as e:
+            self.update_console(f"Error en la conversión de Assembly a Binario: {str(e)}")
+            import traceback
+            self.update_console(traceback.format_exc())
 
+    def assembly_to_binary (self):
+        binary_code = self.binary_text.get("1.0", END).strip()
+        self.update_console(f"Código Binario recibido: {binary_code}")
+        if not binary_code:
+            self.update_console("Error: El área de texto de Binario está vacía.")
+            return
+        try:
+            # Validate input: Check if it's binary code
+            if all(c in '01' for c in binary_code.replace('\n', '')):
+                assembly_code = self.conversor.binary_to_assembly(binary_code)
+                self.assembly_text.delete("1.0", END)
+                self.assembly_text.insert(END, assembly_code)
+                self.update_console("Conversión de Binario a Assembly completada.")
+            else:
+                raise ValueError("El input no parece ser código binario válido.")
+        except Exception as e:
+            self.update_console(f"Error en la conversión de Binario a Assembly: {str(e)}")
+            import traceback
+            self.update_console(traceback.format_exc())
 
-root = Tk()
-root.geometry("490x560")
-root.wm_title("LCMULATOR")
-app = Application(root)
-app.mainloop()
+    def update_console(self, message):
+        self.console_text.config(state="normal")
+        self.console_text.insert(END, message + "\n")
+        self.console_text.see(END)
+        self.console_text.config(state="disabled")
+        
+if __name__ == "__main__":
+    root = Tk()
+    root.geometry("490x560")
+    root.wm_title("LCMULATOR")
+    app = Application(root)
+    app.mainloop()
