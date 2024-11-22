@@ -40,7 +40,7 @@ class Application(Frame):
     def create_space1(self, space0):
         self.space1 = Frame(space0, bg="grey")
         self.space1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
-        entry = Label(self.space1, text="reset", foreground="white", background="#4B4B4B")
+        entry = Button(self.space1, text="reset", foreground="white", background="#4B4B4B", command=self.reset_registers)
         entry.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
         entry = Label(self.space1, text="run", foreground="white", background="#4B4B4B")
         entry.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
@@ -164,6 +164,10 @@ class Application(Frame):
         self.update_registers()
         self.update_console("Ejecución completa.")
 
+    def reset_registers(self):
+        self.simulator.reset_registers()
+        self.update_registers()
+        self.update_console("Registros reseteados.")
     def update_registers(self):
         registers_text = "\n".join([f"R{i}: {value:04X}" for i, value in self.simulator.registers.items()])
         registers_text += f"\nPC: {self.simulator.PC:04X}"
