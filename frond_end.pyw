@@ -231,6 +231,6 @@ class Application(Frame):
 
 root = Tk()
 root.geometry("490x560")
-root.wm_title("LCMULATOR")
+root.wm_title("LCIIIMULATOR")
 app = Application(root)
 app.mainloop()
