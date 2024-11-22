@@ -24,6 +24,14 @@ class LC3Simulator:
             "1001": self._execute_not
         }
 
+    def reset_registers(self):
+        self.registers = {f"R{i}": 0 for i in range(8)}
+        self.PSR = 0
+        self.MSR = 0
+        self.PC = 0x3000
+        self.flags = {"N": 0, "Z": 1, "P": 0}
+        
+
     def load_instructions(self, instructions_text):
         self.memory = {}
         instructions = [line.split("#")[0].strip() for line in instructions_text.split("\n") if line.strip() and not line.startswith("#")]
