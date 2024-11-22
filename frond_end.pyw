@@ -1,13 +1,15 @@
 from tkinter import *
 from tkinter import messagebox
-from back_end import Conversor  # Assuming the Conversor class is in a file named back_end.py
+from back_end import Conversor
+from back_end2 import LC3Simulator  # Import the LC3Simulator class
 
 class Application(Frame):
     def __init__(self, master=None):
         super().__init__(master, bg="#4B4B4B")
         self.master = master
         self.pack(expand=True, fill="both")
-        self.conversor = Conversor()  # Instance of the Conversor class
+        self.conversor = Conversor()
+        self.simulator = LC3Simulator()  # Create an instance of LC3Simulator
         self.create_layout()
 
     def create_layout(self):
@@ -62,9 +64,9 @@ class Application(Frame):
 
         label = Label(space2_1_1, text=" REGISTERS ", foreground="white", background="#4B4B4B")
         label.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
-        entry67 = Button(space2_1_1, text="STEP TO STEP", foreground="white", background="#4B4B4B",) #command=self.assembly_to_binary)
+        entry67 = Button(space2_1_1, text="STEP TO STEP", foreground="white", background="#4B4B4B", command=self.step_execution)
         entry67.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
-        entry68 = Button(space2_1_1, text="RUN ALL", foreground="white", background="#4B4B4B",) #command=self.assembly_to_binary)
+        entry68 = Button(space2_1_1, text="RUN ALL", foreground="white", background="#4B4B4B", command=self.run_all)
         entry68.grid(row=0, column=2, padx=2, pady=2, sticky='wnse')
 
         space2_1_2 = Frame(space2, bg="grey")
@@ -91,14 +93,12 @@ class Application(Frame):
 
         entry69 = Label(space2_2_1, text=" CONSOLE ", foreground="white", background="#4B4B4B")
         entry69.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
-        
 
         space2_2_2 = Frame(space2, bg="grey")
         space2_2_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
 
         self.console_text = Text(space2_2_2, width=20, height=20, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
         self.console_text.pack(side='bottom', expand=True, fill='both', padx=2, pady=2, ipadx=20)
-
 
         return space2
 
@@ -112,9 +112,9 @@ class Application(Frame):
         space3_1_1 = Frame(space3_1, bg="grey")
         space3_1_1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
 
-        entry1 = Label(space3_1_1, text=" ASSEMBLY ", foreground="white", background="#4B4B4B")
+        entry1 = Label(space3_1_1, text=" BINARY ", foreground="white", background="#4B4B4B")
         entry1.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
-        entry2 = Button(space3_1_1, text="TO BINARY", foreground="white", background="#4B4B4B", command=self.assembly_to_binary)
+        entry2 = Button(space3_1_1, text="TO ASSEMBLY", foreground="white", background="#4B4B4B", command=self.binary_to_assembly)
         entry2.grid(row=0, column=2, padx=2, pady=2, sticky='wnse')
 
         spacer = Label(space3_1_1, text="                          ", foreground="grey", background="grey")
@@ -132,9 +132,9 @@ class Application(Frame):
         space3_2_1 = Frame(space3_2, bg="grey")
         space3_2_1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
 
-        entry3 = Label(space3_2_1, text=" BINARY ", foreground="white", background="#4B4B4B")
+        entry3 = Label(space3_2_1, text=" ASSEMBLY ", foreground="white", background="#4B4B4B")
         entry3.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
-        entry4 = Button(space3_2_1, text="TO ASSEMBLY", foreground="white", background="#4B4B4B", command=self.binary_to_assembly)
+        entry4 = Button(space3_2_1, text="TO BINARY", foreground="white", background="#4B4B4B", command=self.assembly_to_binary)
         entry4.grid(row=0, column=2, padx=2, pady=2, sticky='wnse')
 
         spacer = Label(space3_2_1, text="                             ", foreground="grey", background="grey")
@@ -147,20 +147,51 @@ class Application(Frame):
         self.binary_text.pack(side='bottom', expand=True, fill='both', padx=2, pady=2, ipadx=20)
 
         return space3
-    
-    def binary_to_assembly(self):
+
+    def step_execution(self):
+        if self.simulator.PC not in self.simulator.memory:
+            self.update_console("No hay más instrucciones para ejecutar.")
+            return
+        
+        self.simulator.execute_step()
+        self.update_registers()
+        self.update_console(f"Ejecutada instrucción en PC: {self.simulator.PC-1:04X}")
+
+    def run_all(self):
+        while self.simulator.PC in self.simulator.memory:
+            if not self.simulator.execute_step():
+                break
+        self.update_registers()
+        self.update_console("Ejecución completa.")
+
+    def update_registers(self):
+        registers_text = "\n".join([f"R{i}: {value:04X}" for i, value in self.simulator.registers.items()])
+        registers_text += f"\nPC: {self.simulator.PC:04X}"
+        registers_text += f"\nPSR: {self.simulator.PSR:04X}"
+        registers_text += f"\nMSR: {self.simulator.MSR:04X}"
+        registers_text += f"\nFlags: N={self.simulator.flags['N']} Z={self.simulator.flags['Z']} P={self.simulator.flags['P']}"
+        
+        self.registers_text.config(state="normal")
+        self.registers_text.delete("1.0", END)
+        self.registers_text.insert("1.0", registers_text)
+        self.registers_text.config(state="disabled")
+
+    def assembly_to_binary(self):
         assembly_code = self.assembly_text.get("1.0", END).strip()
         self.update_console(f"Código Assembly recibido: {assembly_code}")
         if not assembly_code:
             self.update_console("Error: El área de texto de Assembly está vacía.")
             return
         try:
-            # Validate input: Check if it's assembly code
             if any(opcode in assembly_code for opcode in self.conversor.keys):
-                binary_code  = self.conversor.assembly_to_binary(assembly_code)
+                binary_code = self.conversor.assembly_to_binary(assembly_code)
                 self.binary_text.delete("1.0", END)
                 self.binary_text.insert(END, binary_code)
                 self.update_console("Conversión de Assembly a Binario completada.")
+                
+                # Load instructions into the simulator
+                self.simulator.load_instructions(binary_code)
+                self.update_registers()
             else:
                 raise ValueError("El input no parece ser código Assembly válido.")
         except Exception as e:
@@ -168,19 +199,22 @@ class Application(Frame):
             import traceback
             self.update_console(traceback.format_exc())
 
-    def assembly_to_binary (self):
+    def binary_to_assembly(self):
         binary_code = self.binary_text.get("1.0", END).strip()
         self.update_console(f"Código Binario recibido: {binary_code}")
         if not binary_code:
             self.update_console("Error: El área de texto de Binario está vacía.")
             return
         try:
-            # Validate input: Check if it's binary code
             if all(c in '01' for c in binary_code.replace('\n', '')):
                 assembly_code = self.conversor.binary_to_assembly(binary_code)
                 self.assembly_text.delete("1.0", END)
                 self.assembly_text.insert(END, assembly_code)
                 self.update_console("Conversión de Binario a Assembly completada.")
+                
+                # Load instructions into the simulator
+                self.simulator.load_instructions(binary_code)
+                self.update_registers()
             else:
                 raise ValueError("El input no parece ser código binario válido.")
         except Exception as e:
@@ -193,10 +227,10 @@ class Application(Frame):
         self.console_text.insert(END, message + "\n")
         self.console_text.see(END)
         self.console_text.config(state="disabled")
-        
-if __name__ == "__main__":
-    root = Tk()
-    root.geometry("490x560")
-    root.wm_title("LCMULATOR")
-    app = Application(root)
-    app.mainloop()
+
+
+root = Tk()
+root.geometry("490x560")
+root.wm_title("LCMULATOR")
+app = Application(root)
+app.mainloop()
