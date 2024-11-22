@@ -19,15 +19,18 @@ class Conversor:
         }
         self.reverse_trap_vectors = {v: k for k, v in self.trap_vectors.items()}
         self.orig_labels = {}
+        self.orig_instructions = []
 
     def assembly_to_binary(self, assembly_code):
+        self.orig_labels.clear()
+        self.orig_instructions.clear()
         lines = assembly_code.strip().split('\n')
         result = []
         label_addresses = {}
         current_address = 0
         orig_address = None
 
-        # First pass: collect label addresses
+        # First pass: collect label addresses and original instructions
         for line in lines:
             line = line.strip()
             if not line or line.startswith(';'):
@@ -37,6 +40,8 @@ class Conversor:
                 self.orig_labels[current_address] = label.strip()
                 label_addresses[label.strip()] = current_address
                 line = instruction.strip()
+            if line:
+                self.orig_instructions.append((current_address, line))
             parts = line.replace(',', '').split()
             opcode = parts[0].upper()
 
@@ -54,16 +59,7 @@ class Conversor:
 
         # Second pass: convert to binary
         current_address = orig_address if orig_address is not None else 0
-        for line in lines:
-            line = line.strip()
-            if not line or line.startswith(';'):
-                continue
-            if ':' in line:
-                _, instruction = line.split(':', 1)
-                line = instruction.strip()
-            if not line:
-                continue
-
+        for _, line in self.orig_instructions:
             parts = line.replace(',', '').split()
             opcode = parts[0].upper()
 
@@ -136,10 +132,12 @@ class Conversor:
     def binary_to_assembly(self, binary_code):
         lines = binary_code.strip().split('\n')
         result = []
-        address_to_label = {}
         current_address = None
+        label_addresses = {}
+        original_labels = {}
+        blkw_addresses = set()
 
-        # First pass: identify potential labels
+        # First pass: collect label addresses and identify .BLKW
         for i, line in enumerate(lines):
             if not line.strip():
                 continue
@@ -147,20 +145,27 @@ class Conversor:
                 current_address = int(line, 2)
                 continue
             
-            if current_address in self.orig_labels:
-                address_to_label[current_address] = self.orig_labels[current_address]
+            instruction = int(line, 2)
+            opcode = (instruction >> 12) & 0xF
             
-            opcode_bin = line[:4]
-            if opcode_bin == self.keys['BR']:
-                offset = self.sign_extend(int(line[7:], 2), 9)
-                target_address = current_address + 1 + offset
-                if target_address not in address_to_label:
-                    address_to_label[target_address] = f"LABEL_{target_address:X}"
-            elif opcode_bin == self.keys['JSR'] and line[4] == '1':
-                offset = self.sign_extend(int(line[5:], 2), 11)
-                target_address = current_address + 1 + offset
-                if target_address not in address_to_label:
-                    address_to_label[target_address] = f"LABEL_{target_address:X}"
+            if opcode == 0:  # BR
+                offset = self.sign_extend(instruction & 0x1FF, 9)
+                target = current_address + 1 + offset
+                if target not in label_addresses:
+                    label_addresses[target] = f"LABEL_{len(label_addresses)}"
+            elif opcode in [2, 3, 10, 11, 14]:  # LD, ST, LDI, STI, LEA
+                offset = self.sign_extend(instruction & 0x1FF, 9)
+                target = current_address + 1 + offset
+                if target not in label_addresses:
+                    label_addresses[target] = f"LABEL_{len(label_addresses)}"
+            elif opcode == 4 and instruction & 0x800:  # JSR
+                offset = self.sign_extend(instruction & 0x7FF, 11)
+                target = current_address + 1 + offset
+                if target not in label_addresses:
+                    label_addresses[target] = f"LABEL_{len(label_addresses)}"
+            elif instruction == 0:  # Potential .BLKW
+                blkw_addresses.add(current_address)
+            
             current_address += 1
 
         # Second pass: convert to assembly
@@ -168,85 +173,88 @@ class Conversor:
         for i, line in enumerate(lines):
             if not line.strip():
                 continue
-            
-            line = line.ljust(16, '0')
             if current_address is None:
                 current_address = int(line, 2)
                 result.append(f".ORIG x{current_address:04X}")
                 continue
 
-            if current_address in address_to_label:
-                result.append(f"{address_to_label[current_address]}:")
+            instruction = int(line, 2)
+            opcode = (instruction >> 12) & 0xF
 
-            opcode_bin = line[:4]
-            opcode = next((key for key, value in self.keys.items() if value == opcode_bin), None)
+            if current_address in label_addresses:
+                result.append(f"{label_addresses[current_address]}:")
 
-            instruction = ""
-            if not opcode:
-                value = int(line, 2)
-                instruction = f".FILL x{value:04X}"
-            elif opcode == "BR":
-                condition_bits = line[4:7]
-                condition = next((key for key, value in self.condition_bits.items() if value == condition_bits), "")
-                offset = self.sign_extend(int(line[7:], 2), 9)
-                target_address = current_address + 1 + offset
-                instruction = f"BR{condition.upper()} {address_to_label.get(target_address, f'x{target_address:04X}')}"
-            elif opcode in ["ADD", "AND"]:
-                DR = self.reverse_registers[line[4:7]]
-                SR1 = self.reverse_registers[line[7:10]]
-                if line[10] == "1":
-                    imm5 = self.sign_extend(int(line[11:], 2), 5)
-                    instruction = f"{opcode} {DR}, {SR1}, #{imm5}"
+            if current_address in blkw_addresses:
+                result.append("\t.BLKW 1")
+            elif opcode == 1:  # ADD
+                dr = (instruction >> 9) & 0x7
+                sr1 = (instruction >> 6) & 0x7
+                if instruction & 0x20:
+                    imm5 = self.sign_extend(instruction & 0x1F, 5)
+                    result.append(f"\tADD R{dr}, R{sr1}, #{imm5}")
                 else:
-                    SR2 = self.reverse_registers[line[13:]]
-                    instruction = f"{opcode} {DR}, {SR1}, {SR2}"
-            elif opcode in ["LD", "ST", "LEA", "LDI", "STI"]:
-                DR = self.reverse_registers[line[4:7]]
-                offset = self.sign_extend(int(line[7:], 2), 9)
-                target_address = current_address + 1 + offset
-                if target_address in address_to_label:
-                    instruction = f"{opcode} {DR}, {address_to_label[target_address]}"
+                    sr2 = instruction & 0x7
+                    result.append(f"\tADD R{dr}, R{sr1}, R{sr2}")
+            elif opcode == 5:  # AND
+                dr = (instruction >> 9) & 0x7
+                sr1 = (instruction >> 6) & 0x7
+                if instruction & 0x20:
+                    imm5 = self.sign_extend(instruction & 0x1F, 5)
+                    result.append(f"\tAND R{dr}, R{sr1}, #{imm5}")
                 else:
-                    instruction = f"{opcode} {DR}, x{target_address:04X}"
-            elif opcode in ["LDR", "STR"]:
-                DR = self.reverse_registers[line[4:7]]
-                BaseR = self.reverse_registers[line[7:10]]
-                offset6 = self.sign_extend(int(line[10:], 2), 6)
-                instruction = f"{opcode} {DR}, {BaseR}, #{offset6}"
-            elif opcode == "JMP":
-                if line[7:10] == "111":
-                    instruction = "RET"
+                    sr2 = instruction & 0x7
+                    result.append(f"\tAND R{dr}, R{sr1}, R{sr2}")
+            elif opcode == 0:  # BR
+                n = (instruction >> 11) & 1
+                z = (instruction >> 10) & 1
+                p = (instruction >> 9) & 1
+                offset = self.sign_extend(instruction & 0x1FF, 9)
+                target = current_address + 1 + offset
+                cond = "".join(['n' if n else '', 'z' if z else '', 'p' if p else ''])
+                label = label_addresses.get(target, f"x{target:04X}")
+                result.append(f"\tBR{cond.upper()} {label}")
+            elif opcode in [2, 3, 10, 11, 14]:  # LD, ST, LDI, STI, LEA
+                dr = (instruction >> 9) & 0x7
+                offset = self.sign_extend(instruction & 0x1FF, 9)
+                target = current_address + 1 + offset
+                op_name = {2: "LD", 3: "ST", 10: "LDI", 11: "STI", 14: "LEA"}[opcode]
+                label = label_addresses.get(target, f"x{target:04X}")
+                result.append(f"\t{op_name} R{dr}, {label}")
+            elif opcode in [6, 7]:  # LDR, STR
+                dr = (instruction >> 9) & 0x7
+                base_r = (instruction >> 6) & 0x7
+                offset6 = self.sign_extend(instruction & 0x3F, 6)
+                op_name = "LDR" if opcode == 6 else "STR"
+                result.append(f"\t{op_name} R{dr}, R{base_r}, #{offset6}")
+            elif opcode == 12:  # JMP or RET
+                base_r = (instruction >> 6) & 0x7
+                if base_r == 7:
+                    result.append("\tRET")
                 else:
-                    BaseR = self.reverse_registers[line[7:10]]
-                    instruction = f"JMP {BaseR}"
-            elif opcode == "JSR":
-                if line[4] == "0":  # JSRR
-                    BaseR = self.reverse_registers[line[7:10]]
-                    instruction = f"JSRR {BaseR}"
-                else:  # JSR
-                    offset = self.sign_extend(int(line[5:], 2), 11)
-                    target_address = current_address + 1 + offset
-                    if target_address in address_to_label:
-                        instruction = f"JSR {address_to_label[target_address]}"
-                    else:
-                        instruction = f"JSR x{target_address:04X}"
-            elif opcode == "TRAP":
-                trapvect8 = int(line[8:], 2)
-                if trapvect8 in self.trap_vectors:
-                    instruction = f"{self.trap_vectors[trapvect8]}"
+                    result.append(f"\tJMP R{base_r}")
+            elif opcode == 4:  # JSR or JSRR
+                if instruction & 0x800:
+                    offset = self.sign_extend(instruction & 0x7FF, 11)
+                    target = current_address + 1 + offset
+                    label = label_addresses.get(target, f"x{target:04X}")
+                    result.append(f"\tJSR {label}")
                 else:
-                    instruction = f"TRAP x{trapvect8:02X}"
-            elif opcode == "NOT":
-                DR = self.reverse_registers[line[4:7]]
-                SR = self.reverse_registers[line[7:10]]
-                instruction = f"NOT {DR}, {SR}"
-            elif opcode == "RTI":
-                instruction = "RTI"
+                    base_r = (instruction >> 6) & 0x7
+                    result.append(f"\tJSRR R{base_r}")
+            elif opcode == 15:  # TRAP
+                trapvect8 = instruction & 0xFF
+                if trapvect8 == 0x25:
+                    result.append("\tHALT")
+                else:
+                    result.append(f"\tTRAP x{trapvect8:02X}")
+            elif opcode == 9:  # NOT
+                dr = (instruction >> 9) & 0x7
+                sr = (instruction >> 6) & 0x7
+                result.append(f"\tNOT R{dr}, R{sr}")
+            elif opcode == 8:  # RTI
+                result.append("\tRTI")
             else:
-                raise ValueError(f"Opcode no implementado: {opcode}")
-
-            if instruction:
-                result.append(f"\t{instruction}")
+                result.append(f"\t.FILL x{instruction:04X}")
 
             current_address += 1
 
@@ -274,7 +282,7 @@ conv = Conversor()
 
 assembly_code = """
 .ORIG x3000
-STARTS: ADD R1, R2, #3
+START: ADD R1, R2, #3
        AND R3, R4, #7
        LD R5, DATA
        LEA R6, END
@@ -285,23 +293,25 @@ STARTS: ADD R1, R2, #3
        BRz ZERO
        BRnzp DONE
 POSITIVE: ADD R2, R2, #1
-          BR STARTS
+          BR START
 NEGATIVE: ADD R2, R2, #-1
-          BR STARTS
+          BR START
 ZERO:    AND R2, R2, #0
-         BR STARTS
+         BR START
 DONE:   JSR SUBRUTINA
         RET
 SUBRUTINA: STI R7, SAVE_R7
            RTI
 DATA:  .FILL x3000
 SAVE_R7: .BLKW 1
+
 .HALT
+.END
+TRAP X25
 """
 
 binary_code = conv.assembly_to_binary(assembly_code)
 print("Ensamblador a Binario:\n", binary_code)
 
-binary_input = binary_code.strip()
-assembly_output = conv.binary_to_assembly(binary_input)
+assembly_output = conv.binary_to_assembly(binary_code)
 print("\nBinario a Ensamblador:\n", assembly_output)
