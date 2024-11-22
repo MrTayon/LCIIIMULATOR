@@ -40,12 +40,18 @@ class Application(Frame):
     def create_space1(self, space0):
         self.space1 = Frame(space0, bg="grey")
         self.space1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
-        entry = Button(self.space1, text="reset", foreground="white", background="#4B4B4B", command=self.reset_registers)
-        entry.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
-        entry = Label(self.space1, text="run", foreground="white", background="#4B4B4B")
-        entry.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
-        entry = Label(self.space1, text="more", foreground="white", background="#4B4B4B")
-        entry.grid(row=0, column=2, padx=2, pady=2, sticky='wnse')
+        button0 = Button(self.space1, text="RESET REGISTER", foreground="white", background="#4B4B4B", command=self.reset_registers)
+        button0.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
+        button1 = Button(self.space1, text="Find assembly", foreground="white", background="#4B4B4B")
+        button1.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
+        button2 = Button(self.space1, text="Save assembly", foreground="white", background="#4B4B4B")
+        button2.grid(row=0, column=2, padx=2, pady=2, sticky='wnse')
+        button3 = Button(self.space1, text="Find binary", foreground="white", background="#4B4B4B")
+        button3.grid(row=0, column=3, padx=2, pady=2, sticky='wnse')
+        button4 = Button(self.space1, text="Save binary", foreground="white", background="#4B4B4B")
+        button4.grid(row=0, column=4, padx=2, pady=2, sticky='wnse')
+        button5 = Button(self.space1, text="More", foreground="white", background="#4B4B4B", command=self.more)
+        button5.grid(row=0, column=5, padx=2, pady=2, sticky='wnse')
 
         space1 = Frame(self, bg="#3E3E3E")
         space1.grid(row=1, column=0, padx=5, pady=5, sticky='nsew')
@@ -53,6 +59,9 @@ class Application(Frame):
         space1.grid_columnconfigure(0, weight=1)
 
         return space1
+    
+    def more(self):
+        messagebox.showerror("information","license by GNU \n developed in 2024")
     
     def create_space2(self, space1):
         space2 = Frame(space1, bg="grey")
