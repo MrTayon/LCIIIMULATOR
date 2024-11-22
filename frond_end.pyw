@@ -74,8 +74,8 @@ class Application(Frame):
 
         self.registers_text = Text(
             space2, 
-            width=0, 
-            height=20, 
+            width=15, 
+            height=15, 
             font=("Consolas", 10), 
             fg="white", 
             bg="#3E3E3E", 
@@ -97,7 +97,7 @@ class Application(Frame):
         space2_2_2 = Frame(space2, bg="grey")
         space2_2_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
 
-        self.console_text = Text(space2_2_2, width=20, height=20, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
+        self.console_text = Text(space2_2_2, width=15, height=20, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
         self.console_text.pack(side='bottom', expand=True, fill='both', padx=2, pady=2, ipadx=20)
 
         return space2
