@@ -216,7 +216,7 @@ class Conversor:
             elif opcode == 15:  # TRAP
                 trapvect8 = instruction & 0xFF
                 if trapvect8 == 0x25:
-                    result.append("\tHALT")
+                    result.append("\tTRAP x25")
                 else:
                     result.append(f"\tTRAP x{trapvect8:02X}")
             elif opcode == 9:  # NOT
