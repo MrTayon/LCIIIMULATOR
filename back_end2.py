@@ -5,7 +5,7 @@ class LC3Simulator:
         self.MSR = 0
         self.memory = {}
         self.PC = 0x3000
-        self.flags = {"N": 0, "Z": 1, "P": 0}
+        self.flags = {"N": 0, "Z": 0, "P": 0}
         self.instruction_set = {
             "0001": self._execute_add,
             "0101": self._execute_and,
@@ -33,7 +33,7 @@ class LC3Simulator:
         self.MSR = 0
         self.PC = 0x3000
         self.memory = {}
-        self.flags = {"N": 0, "Z": 1, "P": 0}
+        self.flags = {"N": 0, "Z": 0, "P": 0}
         self.instruction_count = 0
         
 
@@ -72,17 +72,16 @@ class LC3Simulator:
         return True
 
     def _update_flags(self, result):
-        self.flags = {"N": 0, "Z": 0, "P": 0}
         if result == 0:
-            self.flags["Z"] = 1
-        elif result > 0:
-            self.flags["P"] = 1
+            self.flags = {"N": 0, "Z": 1, "P": 0}
+        elif result & 0x8000:  # Check if the result is negative (bit 15 is 1)
+            self.flags = {"N": 1, "Z": 0, "P": 0}
         else:
-            self.flags["N"] = 1
+            self.flags = {"N": 0, "Z": 0, "P": 1}
 
-    def _sign_extend(self, value, bit_count):
-        if value & (1 << (bit_count - 1)):
-            value -= (1 << bit_count)
+    def _sign_extend(self, value, bits):
+        if value & (1 << (bits - 1)):
+            return value | (~0 << bits)
         return value
 
     def _execute_add(self):
@@ -90,12 +89,12 @@ class LC3Simulator:
         sr1 = int(self.current_instruction[7:10], 2)
         if self.current_instruction[10] == "0":
             sr2 = int(self.current_instruction[13:], 2)
-            result = self.registers[f"R{sr1}"] + self.registers[f"R{sr2}"]
+            result = (self.registers[f"R{sr1}"] + self.registers[f"R{sr2}"]) & 0xFFFF
         else:
             imm5 = self._sign_extend(int(self.current_instruction[11:], 2), 5)
-            result = self.registers[f"R{sr1}"] + imm5
-        self.registers[f"R{dr}"] = result & 0xFFFF
-        self._update_flags(self.registers[f"R{dr}"])
+            result = (self.registers[f"R{sr1}"] + imm5) & 0xFFFF
+        self.registers[f"R{dr}"] = result
+        self._update_flags(result)
 
     def _execute_and(self):
         dr = int(self.current_instruction[4:7], 2)
