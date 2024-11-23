@@ -64,7 +64,8 @@ class Conversor:
             opcode = parts[0].upper()
 
             if opcode == '.ORIG':
-                result.append(f"{int(parts[1][1:], 16):016b}")
+                # result.append(f"{int(parts[1][1:], 16):016b}")
+                continue
             elif opcode == '.END':
                 break
             elif opcode == '.FILL':
@@ -132,17 +133,13 @@ class Conversor:
     def binary_to_assembly(self, binary_code):
         lines = binary_code.strip().split('\n')
         result = []
-        current_address = None
         label_addresses = {}
-        original_labels = {}
         blkw_addresses = set()
+        current_address = 0x3000  # Inicializamos con la dirección por defecto
 
         # First pass: collect label addresses and identify .BLKW
         for i, line in enumerate(lines):
             if not line.strip():
-                continue
-            if current_address is None:
-                current_address = int(line, 2)
                 continue
             
             instruction = int(line, 2)
@@ -169,13 +166,11 @@ class Conversor:
             current_address += 1
 
         # Second pass: convert to assembly
-        current_address = None
+        current_address = 0x3000  # Reiniciamos la dirección
+        result.append(f".ORIG x{current_address:04X}")
+
         for i, line in enumerate(lines):
             if not line.strip():
-                continue
-            if current_address is None:
-                current_address = int(line, 2)
-                result.append(f".ORIG x{current_address:04X}")
                 continue
 
             instruction = int(line, 2)
@@ -258,8 +253,9 @@ class Conversor:
 
             current_address += 1
 
+        result.append(".END")
         return "\n".join(result)
-
+    
     def calculate_offset(self, label_or_value, label_addresses, current_address, bits):
         if label_or_value.startswith("#"):
             return int(label_or_value[1:]) & ((1 << bits) - 1)
