@@ -1,7 +1,8 @@
 from tkinter import *
 from tkinter import messagebox
 from back_end import Conversor
-from back_end2 import LC3Simulator  # Import the LC3Simulator class
+from back_end2 import LC3Simulator
+from back_end3 import FileHandler
 
 class Application(Frame):
     def __init__(self, master=None):
@@ -9,7 +10,8 @@ class Application(Frame):
         self.master = master
         self.pack(expand=True, fill="both")
         self.conversor = Conversor()
-        self.simulator = LC3Simulator()  # Create an instance of LC3Simulator
+        self.simulator = LC3Simulator()
+        self.file_handler = FileHandler()
         self.create_layout()
 
     def create_layout(self):
@@ -42,13 +44,13 @@ class Application(Frame):
         self.space1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
         button0 = Button(self.space1, text="RESET REGISTER", foreground="white", background="#4B4B4B", command=self.reset_registers)
         button0.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
-        button1 = Button(self.space1, text="Find assembly", foreground="white", background="#4B4B4B")
+        button1 = Button(self.space1, text="Find assembly", foreground="white", background="#4B4B4B", command=lambda: self.file_handler.find_assembly(self))
         button1.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
-        button2 = Button(self.space1, text="Save assembly", foreground="white", background="#4B4B4B")
+        button2 = Button(self.space1, text="Save assembly", foreground="white", background="#4B4B4B", command=lambda: self.file_handler.save_assembly(self))
         button2.grid(row=0, column=2, padx=2, pady=2, sticky='wnse')
-        button3 = Button(self.space1, text="Find binary", foreground="white", background="#4B4B4B")
+        button3 = Button(self.space1, text="Find binary", foreground="white", background="#4B4B4B", command=lambda: self.file_handler.find_binary(self))
         button3.grid(row=0, column=3, padx=2, pady=2, sticky='wnse')
-        button4 = Button(self.space1, text="Save binary", foreground="white", background="#4B4B4B")
+        button4 = Button(self.space1, text="Save binary", foreground="white", background="#4B4B4B", command=lambda: self.file_handler.save_binary(self))
         button4.grid(row=0, column=4, padx=2, pady=2, sticky='wnse')
         button5 = Button(self.space1, text="More", foreground="white", background="#4B4B4B", command=self.more)
         button5.grid(row=0, column=5, padx=2, pady=2, sticky='wnse')
@@ -81,16 +83,9 @@ class Application(Frame):
         space2_1_2 = Frame(space2, bg="grey")
         space2_1_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
 
-        self.registers_text = Text(
-            space2, 
-            width=15, 
-            height=15, 
-            font=("Consolas", 10), 
-            fg="white", 
-            bg="#3E3E3E", 
-            insertbackground="white",
-            wrap="word"
-        )
+        self.registers_text = Text(space2, width=15, height=15, font=("Consolas", 10), fg="white", 
+            bg="#3E3E3E", insertbackground="white",wrap="word")
+        
         self.registers_text.pack(side='top', expand=True, fill='both', padx=2, pady=2, ipadx=10)
         self.registers_text.insert("end", "R0: 0000\nR1: 0000\nR2: 0000\nR3: 0000\nR4: 0000\nR5: 0000\nR6: 0000\nR7: 0000")
         self.registers_text.config(state="disabled")
@@ -108,6 +103,9 @@ class Application(Frame):
 
         self.console_text = Text(space2_2_2, width=15, height=20, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
         self.console_text.pack(side='bottom', expand=True, fill='both', padx=2, pady=2, ipadx=20)
+
+        entry96 = Button(space2_2_1, text=" CLEAR CONSOLE ", foreground="white", background="#4B4B4B",command=self.clear_console)
+        entry96.grid(row=0, column=1, padx=22, pady=2, sticky='wnse')
 
         return space2
 
@@ -239,6 +237,11 @@ class Application(Frame):
         self.console_text.config(state="normal")
         self.console_text.insert(END, message + "\n")
         self.console_text.see(END)
+        self.console_text.config(state="disabled")
+
+    def clear_console(self):
+        self.console_text.config(state="normal")
+        self.console_text.delete("1.0", END)
         self.console_text.config(state="disabled")
 
 
