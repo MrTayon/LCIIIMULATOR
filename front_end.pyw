@@ -16,14 +16,6 @@ class Application(Frame):
         self.create_layout()
 
     def create_layout(self):
-        icon_image_path = 'image_icon.gif'
-
-        try:
-            tk_icon = PhotoImage(file=icon_image_path)
-            self.master.iconphoto(False, tk_icon)
-        except Exception:
-            messagebox.showerror("Error", "Error al cargar el ícono")
-
         space0 = self.create_space0()
         space1 = self.create_space1(space0)
         space2_and_memory = self.create_space2_and_memory(space1)
@@ -249,7 +241,7 @@ class Application(Frame):
 
     def binary_to_assembly(self):
         binary_code = self.binary_text.get("1.0", END).strip()
-        self.update_console(f"Código Binario recibido: {binary_code}")
+        self.update_console(f"Código Binario recibido:\n{binary_code}")
         if not binary_code:
             self.update_console("Error: El área de texto de Binario está vacía.")
             return
