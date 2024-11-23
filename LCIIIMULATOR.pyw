@@ -107,7 +107,7 @@ class Application(Frame):
         space2_1_2 = Frame(space2, bg="grey")
         space2_1_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
 
-        self.registers_text = Text(space2, width=15, height=15, font=("Consolas", 10), fg="white", 
+        self.registers_text = Text(space2, width=15, height=13, font=("Consolas", 10), fg="white", 
             bg="#3E3E3E", insertbackground="white",wrap="word")
         
         self.registers_text.pack(side='top', expand=True, fill='both', padx=2, pady=2, ipadx=10)
@@ -125,7 +125,7 @@ class Application(Frame):
         space2_2_2 = Frame(space2, bg="grey")
         space2_2_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
 
-        self.console_text = Text(space2_2_2, width=15, height=20, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
+        self.console_text = Text(space2_2_2, width=15, height=15, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
         self.console_text.pack(side='bottom', expand=True, fill='both', padx=2, pady=2, ipadx=20)
         self.console_text.bind("<Key>", self.on_key_press)
         self._input_done = StringVar()
@@ -170,31 +170,9 @@ class Application(Frame):
         space3 = Frame(space1, bg="grey")
         space3.pack(side='left', expand=True, fill='both', padx=2, pady=2, ipadx=0)
 
-        # Assembly section
-        space3_1 = Frame(space3, bg="grey")
-        space3_1.pack(side='top', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
-        space3_1_1 = Frame(space3_1, bg="grey")
-        space3_1_1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
-
-        entry1 = Label(space3_1_1, text=" BINARY ", foreground="white", background="#4B4B4B")
-        entry1.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
-        clear_binary_button = Button(space3_1_1, text=" CLEAR ", foreground="white", background="#4B4B4B", command=self.clear_binary_text)
-        clear_binary_button.grid(row=0, column=3, padx=2, pady=2, sticky='wnse')
-        entry2 = Button(space3_1_1, text="TO ASSEMBLY", foreground="white", background="#4B4B4B", command=self.binary_to_assembly)
-        entry2.grid(row=0, column=4, padx=2, pady=2, sticky='wnse')
-
-        spacer = Label(space3_1_1, text="               ", foreground="grey", background="grey")
-        spacer.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
-
-        space3_1_2 = Frame(space3, bg="grey")
-        space3_1_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
-
-        self.assembly_text = Text(space3_1_2, width=10, height=15, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
-        self.assembly_text.pack(side='bottom', expand=True, fill='both', padx=2, pady=2, ipadx=20)
-
         # Binary section
         space3_2 = Frame(space3, bg="grey")
-        space3_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0)
+        space3_2.pack(side='top', expand=True, fill='both', padx=0, pady=0, ipadx=0)
         space3_2_1 = Frame(space3_2, bg="grey")
         space3_2_1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
 
@@ -211,8 +189,34 @@ class Application(Frame):
         space3_2_2 = Frame(space3, bg="grey")
         space3_2_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
 
-        self.binary_text = Text(space3_2_2, width=20, height=20, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
+        self.binary_text = Text(space3_2_2, width=20, height=13, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
         self.binary_text.pack(side='bottom', expand=True, fill='both', padx=2, pady=2, ipadx=20)
+
+
+
+        # Assembly section
+        space3_1 = Frame(space3, bg="grey")
+        space3_1.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
+        space3_1_1 = Frame(space3_1, bg="grey")
+        space3_1_1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
+
+        entry1 = Label(space3_1_1, text=" BINARY ", foreground="white", background="#4B4B4B")
+        entry1.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
+        clear_binary_button = Button(space3_1_1, text=" CLEAR ", foreground="white", background="#4B4B4B", command=self.clear_binary_text)
+        clear_binary_button.grid(row=0, column=3, padx=2, pady=2, sticky='wnse')
+        entry2 = Button(space3_1_1, text="TO ASSEMBLY", foreground="white", background="#4B4B4B", command=self.binary_to_assembly)
+        entry2.grid(row=0, column=4, padx=2, pady=2, sticky='wnse')
+
+        spacer = Label(space3_1_1, text="               ", foreground="grey", background="grey")
+        spacer.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
+
+        space3_1_2 = Frame(space3, bg="grey")
+        space3_1_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
+
+        self.assembly_text = Text(space3_1_2, width=20, height=27, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
+        self.assembly_text.pack(side='bottom', expand=True, fill='both', padx=2, pady=2, ipadx=20)
+
+
 
         return space3
 
