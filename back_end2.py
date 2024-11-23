@@ -23,6 +23,9 @@ class LC3Simulator:
             "1110": self._execute_lea,
             "1001": self._execute_not
         }
+        self.input_callback = None
+        self.output_callback = None
+        self.instruction_count = 0
 
     def reset_registers(self):
         self.registers = {f"R{i}": 0 for i in range(8)}
@@ -31,6 +34,7 @@ class LC3Simulator:
         self.PC = 0x3000
         self.memory = {}
         self.flags = {"N": 0, "Z": 1, "P": 0}
+        self.instruction_count = 0
         
 
     def load_instructions(self, instructions_text):
@@ -60,6 +64,7 @@ class LC3Simulator:
 
         if opcode in self.instruction_set:
             self.instruction_set[opcode]()
+            self.instruction_count += 1
         else:
             print(f"Opcode desconocido: {opcode}")
 
@@ -174,14 +179,26 @@ class LC3Simulator:
         self.registers[f"R{dr}"] = (self.PC + 1 + pc_offset) & 0xFFFF
         self._update_flags(self.registers[f"R{dr}"])
 
+    def set_input_callback(self, callback):
+        self.input_callback = callback
+
+    def set_output_callback(self, callback):
+        self.output_callback = callback
+
     def _execute_trap(self):
         trapvect8 = int(self.current_instruction[8:], 2)
         if trapvect8 == 0x20:  # GETC
-            char = input("Enter a single character: ")
+            if self.input_callback:
+                char = self.input_callback("Enter a single character: ")
+            else:
+                char = input("Enter a single character: ")
             self.registers["R0"] = ord(char[0]) if char else 0
         elif trapvect8 == 0x21:  # OUT
             char = chr(self.registers["R0"] & 0xFF)
-            print(char, end='', flush=True)
+            if self.output_callback:
+                self.output_callback(char + "\n")
+            else:
+                print(char, end='\n', flush=True)
         elif trapvect8 == 0x22:  # PUTS
             address = self.registers["R0"]
             string = ""
@@ -240,44 +257,3 @@ class LC3Simulator:
         print(f"MSR: {self.MSR:04X}")
         print(f"Flags: N={self.flags['N']} Z={self.flags['Z']} P={self.flags['P']}")
         print("-" * 40)
-
-def run_simulator(instructions):
-    simulator = LC3Simulator()
-    simulator.load_instructions(instructions)
-
-    print("=== Ejecución Paso a Paso ===")
-    while simulator.PC in simulator.memory:
-        simulator.show_state()
-        if not simulator.execute_step():
-            break
-    print("=== Ejecución Completa ===")
-    simulator.show_state()
-
-# Ejemplo de uso
-instructions = """
-0001001001100011 # ADD R1, R1, #3
-0101011011100111 # AND R3, R3, #7
-0010101000000101 # LD R5, #5
-1110110000000011 # LEA R6, #3
-0110000110111111 # LDR R0, R6, #-1
-0111001110000010 # STR R1, R6, #2
-0000001000000011 # BRp #3
-0000100000000100 # BRz #4
-0000010000000101 # BRn #5
-0000111000000110 # BRnzp #6
-0001010010100001 # ADD R2, R2, #1
-0000000111110100 # BR #-12
-0001010010111111 # ADD R2, R2, #-1
-0000000111110010 # BR #-14
-0101010010100000 # AND R2, R2, #0
-0000000111110000 # BR #-16
-0100100000000001 # JSR #1
-1100000111000000 # RET
-1011111000000010 # STI R7, #2
-1000000000000000 # RTI
-0011000000000000 # ST R0, #0
-0000000000000000 # BR #0
-1111000000100101 # TRAP x25
-"""
-
-run_simulator(instructions)
