@@ -35,9 +35,19 @@ class LC3Simulator:
 
     def load_instructions(self, instructions_text):
         self.memory = {}
+        self.reset_registers()
         instructions = [line.split("#")[0].strip() for line in instructions_text.split("\n") if line.strip() and not line.startswith("#")]
+        
         for i, instruction in enumerate(instructions):
-            if len(instruction) == 16:
+            if instruction.upper().startswith(".ORIG"):
+                try:
+                    self.PC = int(instruction.split()[1], 16)
+                    continue
+                except (ValueError, IndexError):
+                    print("Invalid .ORIG instruction")
+                    return
+            
+            if len(instruction) == 16 and all(c in '01' for c in instruction):
                 self.memory[self.PC + i] = instruction
 
     def execute_step(self):
@@ -166,10 +176,45 @@ class LC3Simulator:
 
     def _execute_trap(self):
         trapvect8 = int(self.current_instruction[8:], 2)
-        if trapvect8 == 0x25:  # HALT
+        if trapvect8 == 0x20:  # GETC
+            char = input("Enter a single character: ")
+            self.registers["R0"] = ord(char[0]) if char else 0
+        elif trapvect8 == 0x21:  # OUT
+            char = chr(self.registers["R0"] & 0xFF)
+            print(char, end='', flush=True)
+        elif trapvect8 == 0x22:  # PUTS
+            address = self.registers["R0"]
+            string = ""
+            while True:
+                char_value = self.memory.get(address, 0)
+                if char_value == 0:
+                    break
+                string += chr(char_value & 0xFF)
+                address += 1
+            print(string, end='', flush=True)
+        elif trapvect8 == 0x23:  # IN
+            char = input("Enter a single character: ")
+            self.registers["R0"] = ord(char[0]) if char else 0
+            print(f"Character read: {char[0] if char else ''}")
+        elif trapvect8 == 0x24:  # PUTSP
+            address = self.registers["R0"]
+            string = ""
+            while True:
+                char_value = self.memory.get(address, 0)
+                if char_value == 0:
+                    break
+                string += chr(char_value & 0xFF)
+                char_value >>= 8
+                if char_value != 0:
+                    string += chr(char_value & 0xFF)
+                address += 1
+            print(string, end='', flush=True)
+        elif trapvect8 == 0x25:  # HALT
             print("HALT instruction encountered. Stopping execution.")
             return False
-        print(f"TRAP executed: x{trapvect8:02X}")
+        else:
+            print(f"Unknown TRAP vector: x{trapvect8:02X}")
+        
         return True
 
     def _execute_br(self):
