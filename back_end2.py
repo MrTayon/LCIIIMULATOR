@@ -29,6 +29,7 @@ class LC3Simulator:
         self.PSR = 0
         self.MSR = 0
         self.PC = 0x3000
+        self.memory = {}
         self.flags = {"N": 0, "Z": 1, "P": 0}
         
 
