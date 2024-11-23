@@ -61,7 +61,19 @@ class Application(Frame):
         return space1
     
     def more(self):
-        messagebox.showerror("information","license by GNU \n developed in 2024")
+        messagebox.showinfo(
+            "Acerca del Programa",
+            "*****************************************************\n"
+            "      LICENCIA GNU GENERAL PUBLIC LICENSE (GPL)\n"
+            "*****************************************************\n"
+            "Este software está licenciado bajo la GPLv3 (2024).\n\n"
+            "Desarrollado por: Taeeon, Nicolas.\n"
+            "Testeado a fondo por: Nicolas.\n\n"
+            "Eres libre de usar, compartir y modificar este programa\n"
+            "mientras respetes los términos de la licencia GPLv3.\n\n"
+            "Para más información, consulta nuestra página de GitHub:\n"
+            "https://github.com/MrTayon/LCIIIMULATOR"
+        )
     
     def create_space2_and_memory(self, space1):
         container = Frame(space1, bg="grey")
