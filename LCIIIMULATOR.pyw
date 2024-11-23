@@ -4,6 +4,9 @@ from tkinter import messagebox
 from Converter import Conversor
 from Simulator import LC3Simulator
 from File_handler import FileHandler
+import tkinter as tk
+from tkinter import Menu
+from tkinter import filedialog
 
 
 class Application(Frame):
@@ -45,31 +48,57 @@ class Application(Frame):
 
         return space0
     
+    def create_space0(self):
+        space0 = Frame(self, bg="#3E3E3E")
+        space0.grid(row=0, column=0, padx=5, pady=5, sticky='nsew')
+
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+        space0.grid_rowconfigure(1, weight=1)
+        space0.grid_columnconfigure(0, weight=1)
+
+        return space0
+
     def create_space1(self, space0):
-        self.space1 = Frame(space0, bg="grey")
-        self.space1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
-        button0 = Button(self.space1, text="RESET REGISTER", foreground="white", background="#4B4B4B", command=self.reset_registers)
-        button0.grid(row=0, column=4, padx=2, pady=2, sticky='wnse')
-        button1 = Button(self.space1, text="Load assembly", foreground="white", background="#4B4B4B", command=lambda: self.file_handler.find_assembly(self))
-        button1.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
-        button2 = Button(self.space1, text="Save assembly", foreground="white", background="#4B4B4B", command=lambda: self.file_handler.save_assembly(self))
-        button2.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
-        button3 = Button(self.space1, text="Load binary", foreground="white", background="#4B4B4B", command=lambda: self.file_handler.find_binary(self))
-        button3.grid(row=0, column=2, padx=2, pady=2, sticky='wnse')
-        button4 = Button(self.space1, text="Save binary", foreground="white", background="#4B4B4B", command=lambda: self.file_handler.save_binary(self))
-        button4.grid(row=0, column=3, padx=2, pady=2, sticky='wnse')
-        button5 = Button(self.space1, text="CLEAR ALL", foreground="white", background="#4B4B4B", command=self.clear_all)
-        button5.grid(row=0, column=5, padx=2, pady=2, sticky='wnse')
-        button6 = Button(self.space1, text="More", foreground="white", background="#4B4B4B", command=self.more)
-        button6.grid(row=0, column=6, padx=2, pady=2, sticky='wnse')
+            # Configuración de la barra de menú
+            barra_menu = Menu(self.master)
+            self.master.config(menu=barra_menu)
 
+            # Menú "Archivo"
+            menu_archivo = Menu(barra_menu, tearoff=0)
+            menu_archivo.add_command(label="Load Assembly", command=lambda: self.file_handler.find_assembly(self))
+            menu_archivo.add_command(label="Save Assembly", command=lambda: self.file_handler.save_assembly(self))
+            menu_archivo.add_command(label="Load Binary", command=lambda: self.file_handler.find_binary(self))
+            menu_archivo.add_command(label="Save Binary", command=lambda: self.file_handler.save_binary(self))
+            menu_archivo.add_separator()
+            menu_archivo.add_command(label="Salir", command=self.master.quit)
 
-        space1 = Frame(self, bg="#3E3E3E")
-        space1.grid(row=1, column=0, padx=5, pady=5, sticky='nsew')
-        space1.grid_rowconfigure(0, weight=1)
-        space1.grid_columnconfigure(0, weight=1)
+            barra_menu.add_cascade(label="File", menu=menu_archivo)
 
-        return space1
+            # Botón "More" en la barra de menú
+            barra_menu.add_command(label="About", command=self.more)
+
+            # Crear espacio para botones restantes
+            self.space1 = Frame(space0, bg="grey")
+            self.space1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
+
+            # Botones que permanecen en `space1`
+            buttons = [
+                ("RESET REGISTER", self.reset_registers),
+                ("CLEAR ALL", self.clear_all)
+            ]
+
+            for i, (text, command) in enumerate(buttons):
+                button = Button(self.space1, text=text, foreground="white", background="#4B4B4B", command=command)
+                button.grid(row=0, column=i, padx=2, pady=2, sticky='wnse')
+
+            # Crear un espacio adicional (space1)
+            space1 = Frame(self, bg="#3E3E3E")
+            space1.grid(row=1, column=0, padx=5, pady=5, sticky='nsew')
+            space1.grid_rowconfigure(0, weight=1)
+            space1.grid_columnconfigure(0, weight=1)
+
+            return space1
     
     def more(self):
         messagebox.showinfo(
@@ -107,7 +136,7 @@ class Application(Frame):
         space2_1_2 = Frame(space2, bg="grey")
         space2_1_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
 
-        self.registers_text = Text(space2, width=15, height=13, font=("Consolas", 10), fg="white", 
+        self.registers_text = Text(space2, width=15, height=15, font=("Consolas", 10), fg="white", 
             bg="#3E3E3E", insertbackground="white",wrap="word")
         
         self.registers_text.pack(side='top', expand=True, fill='both', padx=2, pady=2, ipadx=10)
@@ -125,7 +154,7 @@ class Application(Frame):
         space2_2_2 = Frame(space2, bg="grey")
         space2_2_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
 
-        self.console_text = Text(space2_2_2, width=15, height=15, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
+        self.console_text = Text(space2_2_2, width=15, height=20, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
         self.console_text.pack(side='bottom', expand=True, fill='both', padx=2, pady=2, ipadx=20)
         self.console_text.bind("<Key>", self.on_key_press)
         self._input_done = StringVar()
@@ -170,33 +199,9 @@ class Application(Frame):
         space3 = Frame(space1, bg="grey")
         space3.pack(side='left', expand=True, fill='both', padx=2, pady=2, ipadx=0)
 
-        # Binary section
-        space3_2 = Frame(space3, bg="grey")
-        space3_2.pack(side='top', expand=True, fill='both', padx=0, pady=0, ipadx=0)
-        space3_2_1 = Frame(space3_2, bg="grey")
-        space3_2_1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
-
-        entry3 = Label(space3_2_1, text=" ASSEMBLY ", foreground="white", background="#4B4B4B")
-        entry3.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
-        clear_assembly_button = Button(space3_2_1, text=" CLEAR ", foreground="white", background="#4B4B4B", command=self.clear_assembly_text)
-        clear_assembly_button.grid(row=0, column=3, padx=2, pady=2, sticky='wnse')
-        entry4 = Button(space3_2_1, text="TO BINARY", foreground="white", background="#4B4B4B", command=self.assembly_to_binary)
-        entry4.grid(row=0, column=4, padx=2, pady=2, sticky='wnse')
-
-        spacer = Label(space3_2_1, text="         ", foreground="grey", background="grey")
-        spacer.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
-
-        space3_2_2 = Frame(space3, bg="grey")
-        space3_2_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
-
-        self.binary_text = Text(space3_2_2, width=20, height=13, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
-        self.binary_text.pack(side='bottom', expand=True, fill='both', padx=2, pady=2, ipadx=20)
-
-
-
         # Assembly section
         space3_1 = Frame(space3, bg="grey")
-        space3_1.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
+        space3_1.pack(side='top', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
         space3_1_1 = Frame(space3_1, bg="grey")
         space3_1_1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
 
@@ -213,10 +218,30 @@ class Application(Frame):
         space3_1_2 = Frame(space3, bg="grey")
         space3_1_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
 
-        self.assembly_text = Text(space3_1_2, width=20, height=27, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
+        self.assembly_text = Text(space3_1_2, width=10, height=15, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
         self.assembly_text.pack(side='bottom', expand=True, fill='both', padx=2, pady=2, ipadx=20)
 
+        # Binary section
+        space3_2 = Frame(space3, bg="grey")
+        space3_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0)
+        space3_2_1 = Frame(space3_2, bg="grey")
+        space3_2_1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
 
+        entry3 = Label(space3_2_1, text=" ASSEMBLY ", foreground="white", background="#4B4B4B")
+        entry3.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
+        clear_assembly_button = Button(space3_2_1, text=" CLEAR ", foreground="white", background="#4B4B4B", command=self.clear_assembly_text)
+        clear_assembly_button.grid(row=0, column=3, padx=2, pady=2, sticky='wnse')
+        entry4 = Button(space3_2_1, text="TO BINARY", foreground="white", background="#4B4B4B", command=self.assembly_to_binary)
+        entry4.grid(row=0, column=4, padx=2, pady=2, sticky='wnse')
+
+        spacer = Label(space3_2_1, text="         ", foreground="grey", background="grey")
+        spacer.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
+
+        space3_2_2 = Frame(space3, bg="grey")
+        space3_2_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
+
+        self.binary_text = Text(space3_2_2, width=20, height=20, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
+        self.binary_text.pack(side='bottom', expand=True, fill='both', padx=2, pady=2, ipadx=20)
 
         return space3
 
