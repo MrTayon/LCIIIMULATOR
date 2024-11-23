@@ -28,60 +28,26 @@ class Conversor:
         result = []
         label_addresses = {}
         current_address = 0
-        orig_address = None
 
-        # First pass: collect label addresses and original instructions
+        # First pass: collect label addresses
         for line in lines:
             line = line.strip()
-            if not line or line.startswith(';'):
+            if not line or line.startswith(';') or line.upper().startswith('.ORIG') or line.upper().startswith('.END'):
                 continue
             if ':' in line:
                 label, instruction = line.split(':', 1)
-                self.orig_labels[current_address] = label.strip()
                 label_addresses[label.strip()] = current_address
                 line = instruction.strip()
             if line:
                 self.orig_instructions.append((current_address, line))
-            parts = line.replace(',', '').split()
-            opcode = parts[0].upper()
-
-            if opcode == '.ORIG':
-                orig_address = int(parts[1][1:], 16)
-                current_address = orig_address
-            elif opcode == '.END':
-                break
-            elif opcode == '.FILL':
-                current_address += 1
-            elif opcode == '.BLKW':
-                current_address += int(parts[1])
-            elif opcode not in self.pseudo_ops:
                 current_address += 1
 
         # Second pass: convert to binary
-        current_address = orig_address if orig_address is not None else 0
-        for _, line in self.orig_instructions:
+        for address, line in self.orig_instructions:
             parts = line.replace(',', '').split()
             opcode = parts[0].upper()
 
-            if opcode == '.ORIG':
-                # result.append(f"{int(parts[1][1:], 16):016b}")
-                continue
-            elif opcode == '.END':
-                break
-            elif opcode == '.FILL':
-                value = int(parts[1][1:], 16) if parts[1].startswith('x') else int(parts[1])
-                result.append(f"{value & 0xFFFF:016b}")
-            elif opcode == '.BLKW':
-                count = int(parts[1])
-                result.extend(["0" * 16] * count)
-            elif opcode in ['.HALT', 'HALT']:
-                result.append(f"{self.keys['TRAP']}0000{0x25:08b}")
-            elif opcode.startswith("BR"):
-                conditions = opcode[2:].lower()
-                cond_bits = self.condition_bits.get(conditions, "000")
-                offset = self.calculate_offset(parts[1], label_addresses, current_address, 9)
-                result.append(f"{self.keys['BR']}{cond_bits}{offset:09b}")
-            elif opcode in ["ADD", "AND"]:
+            if opcode in ["ADD", "AND"]:
                 DR, SR1 = self.registers[parts[1]], self.registers[parts[2]]
                 if parts[3].startswith("#"):
                     imm5 = int(parts[3][1:])
@@ -89,9 +55,14 @@ class Conversor:
                 else:
                     SR2 = self.registers[parts[3]]
                     result.append(f"{self.keys[opcode]}{DR}{SR1}000{SR2}")
+            elif opcode.startswith("BR"):
+                conditions = opcode[2:].lower()
+                cond_bits = self.condition_bits.get(conditions, "000")
+                offset = self.calculate_offset(parts[1], label_addresses, address, 9)
+                result.append(f"{self.keys['BR']}{cond_bits}{offset:09b}")
             elif opcode in ["LD", "ST", "LEA", "LDI", "STI"]:
                 DR = self.registers[parts[1]]
-                offset = self.calculate_offset(parts[2], label_addresses, current_address, 9)
+                offset = self.calculate_offset(parts[2], label_addresses, address, 9)
                 result.append(f"{self.keys[opcode]}{DR}{offset:09b}")
             elif opcode in ["LDR", "STR"]:
                 DR = self.registers[parts[1]]
@@ -109,11 +80,11 @@ class Conversor:
                     BaseR = self.registers[parts[1]]
                     result.append(f"{self.keys['JSR']}000{BaseR}000000")
                 else:  # JSR
-                    offset = self.calculate_offset(parts[1], label_addresses, current_address, 11)
+                    offset = self.calculate_offset(parts[1], label_addresses, address, 11)
                     result.append(f"{self.keys['JSR']}1{offset:011b}")
             elif opcode == "TRAP" or opcode in self.reverse_trap_vectors:
                 if opcode == "TRAP":
-                    trapvect8 = int(parts[1][1:], 16)
+                    trapvect8 = int(parts[1].replace('x', '0x'), 16)
                 else:
                     trapvect8 = self.reverse_trap_vectors[opcode]
                 result.append(f"{self.keys['TRAP']}0000{trapvect8:08b}")
@@ -124,9 +95,6 @@ class Conversor:
                 result.append(f"{self.keys[opcode]}000000000000")
             else:
                 raise ValueError(f"Opcode no soportado: {opcode}")
-
-            if opcode not in self.pseudo_ops or opcode in ['.HALT', 'HALT']:
-                current_address += 1
 
         return "\n".join(result)
 
@@ -260,10 +228,10 @@ class Conversor:
         if label_or_value.startswith("#"):
             return int(label_or_value[1:]) & ((1 << bits) - 1)
         if label_or_value.startswith("x"):
-            return int(label_or_value[1:], 16) - (current_address + 1) & ((1 << bits) - 1)
+            return int(label_or_value.replace('x', '0x'), 16) & ((1 << bits) - 1)
         if label_or_value not in label_addresses:
-            return 0
-        offset = label_addresses[label_or_value] - current_address - 1
+            raise ValueError(f"Label no encontrada: {label_or_value}")
+        offset = label_addresses[label_or_value] - (current_address + 1)
         if offset < -(1 << (bits - 1)) or offset >= (1 << (bits - 1)):
             raise ValueError(f"Offset fuera de rango: {offset}")
         return offset & ((1 << bits) - 1)
