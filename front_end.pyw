@@ -1,4 +1,5 @@
 from tkinter import *
+from tkinter import ttk
 from tkinter import messagebox
 from back_end import Conversor
 from back_end2 import LC3Simulator
@@ -25,8 +26,9 @@ class Application(Frame):
 
         space0 = self.create_space0()
         space1 = self.create_space1(space0)
-        space2 = self.create_space2(space1)
+        space2_and_memory = self.create_space2_and_memory(space1)
         space3 = self.create_space3(space1)
+
 
     def create_space0(self):
         space0 = Frame(self, bg="#3E3E3E")
@@ -65,7 +67,10 @@ class Application(Frame):
     def more(self):
         messagebox.showerror("information","license by GNU \n developed in 2024")
     
-    def create_space2(self, space1):
+    def create_space2_and_memory(self, space1):
+        container = Frame(space1, bg="grey")
+        container.pack(side='right', expand=True, fill='both', padx=2, pady=2)
+
         space2 = Frame(space1, bg="grey")
         space2.pack(side='right', expand=True, fill='both', padx=2, pady=2, ipadx=0)
         space2_1 = Frame(space2, bg="grey")
@@ -107,7 +112,33 @@ class Application(Frame):
         entry96 = Button(space2_2_1, text=" CLEAR CONSOLE ", foreground="white", background="#4B4B4B",command=self.clear_console)
         entry96.grid(row=0, column=1, padx=22, pady=2, sticky='wnse')
 
-        return space2
+
+        # MEMORY VIEWER
+        memory_frame = Frame(container, bg="grey", width=200)
+        memory_frame.pack(side='right', expand=True, fill='both', padx=2, pady=2)
+
+        memory_label = Label(memory_frame, text="MEMORY VIEWER", foreground="white", background="#4B4B4B")
+        memory_label.pack(side='top', fill='x')
+
+        self.memory_tree = ttk.Treeview(memory_frame, columns=('Address', 'Value'), show='headings', height=20)
+        self.memory_tree.heading('Address', text='Address')
+        self.memory_tree.heading('Value', text='Value')
+        self.memory_tree.column('Address', width=80)
+        self.memory_tree.column('Value', width=120)
+        self.memory_tree.pack(side='left', expand=True, fill='both')
+
+        scrollbar = ttk.Scrollbar(memory_frame, orient="vertical", command=self.memory_tree.yview)
+        scrollbar.pack(side='right', fill='y')
+
+        self.memory_tree.configure(yscrollcommand=scrollbar.set)
+
+        return container
+    
+    def update_memory_viewer(self):
+        self.memory_tree.delete(*self.memory_tree.get_children())
+        for address, value in sorted(self.simulator.memory.items()):
+            self.memory_tree.insert('', 'end', values=(f'x{address:04X}', value))
+
 
     def create_space3(self, space1):
         space3 = Frame(space1, bg="grey")
@@ -156,25 +187,26 @@ class Application(Frame):
         return space3
 
     def step_execution(self):
-        if self.simulator.PC not in self.simulator.memory:
-            self.update_console("No hay más instrucciones para ejecutar.")
-            return
-        
-        self.simulator.execute_step()
-        self.update_registers()
-        self.update_console(f"Ejecutada instrucción en PC: {self.simulator.PC-1:04X}")
+        if self.simulator.execute_step():
+            self.update_registers()
+            self.update_memory_viewer()
+            self.update_console(f"Executed instruction at PC: {self.simulator.PC-1:04X}")
+        else:
+            self.update_console("No more instructions to execute.")
 
     def run_all(self):
-        while self.simulator.PC in self.simulator.memory:
-            if not self.simulator.execute_step():
-                break
+        while self.simulator.execute_step():
+            pass
         self.update_registers()
-        self.update_console("Ejecución completa.")
+        self.update_memory_viewer()
+        self.update_console("Execution complete.")
 
     def reset_registers(self):
         self.simulator.reset_registers()
         self.update_registers()
-        self.update_console("Registros reseteados.")
+        self.update_memory_viewer()
+        self.update_console("Registers and memory reset.")
+
     def update_registers(self):
         registers_text = "\n".join([f"R{i}: {value:04X}" for i, value in self.simulator.registers.items()])
         registers_text += f"\nPC: {self.simulator.PC:04X}"
@@ -246,7 +278,7 @@ class Application(Frame):
 
 
 root = Tk()
-root.geometry("490x560")
+root.geometry("800x600")
 root.wm_title("LCIIIMULATOR")
 app = Application(root)
 app.mainloop()
