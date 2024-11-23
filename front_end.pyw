@@ -14,6 +14,10 @@ class Application(Frame):
         self.simulator = LC3Simulator()
         self.file_handler = FileHandler()
         self.create_layout()
+        self.simulator.set_input_callback(self.get_char_input)
+        self.simulator.set_output_callback(self.console_output)
+        self.input_mode = False
+        self.input_buffer = ""
 
     def create_layout(self):
         space0 = self.create_space0()
@@ -100,6 +104,8 @@ class Application(Frame):
 
         self.console_text = Text(space2_2_2, width=15, height=20, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
         self.console_text.pack(side='bottom', expand=True, fill='both', padx=2, pady=2, ipadx=20)
+        self.console_text.bind("<Key>", self.on_key_press)
+        self._input_done = StringVar()
 
         entry96 = Button(space2_2_1, text=" CLEAR CONSOLE ", foreground="white", background="#4B4B4B",command=self.clear_console)
         entry96.grid(row=0, column=1, padx=22, pady=2, sticky='wnse')
@@ -183,6 +189,14 @@ class Application(Frame):
 
         return space3
 
+    def on_key_press(self, event):
+        if self.input_mode:
+            if event.char:
+                self.input_buffer = event.char
+                self.console_output(event.char + "\n")
+                self._input_done.set(True)
+            return "break"  # Prevents default key behavior
+
     def step_execution(self):
         if self.simulator.execute_step():
             self.update_registers()
@@ -190,19 +204,54 @@ class Application(Frame):
             self.update_console(f"Executed instruction at PC: {self.simulator.PC-1:04X}")
         else:
             self.update_console("No more instructions to execute.")
+            self.display_instruction_count()
+        self.master.update()  # Force update of the GUI
 
     def run_all(self):
         while self.simulator.execute_step():
-            pass
-        self.update_registers()
-        self.update_memory_viewer()
+            self.update_registers()
+            self.update_memory_viewer()
+            self.master.update()  # Force update of the GUI after each step
+            if not self.simulator.execute_step():
+                break
         self.update_console("Execution complete.")
+        self.display_instruction_count()
+
+    def display_instruction_count(self):
+        count = self.simulator.instruction_count
+        message = f"Total instructions executed: {count}"
+        self.update_console(message)
+
+    def update_console(self, message):
+        self.console_text.config(state="normal")
+        self.console_text.insert(END, message + "\n")
+        self.console_text.see(END)
+        self.console_text.config(state="normal")  # Keep it normal to allow input
+
+    def get_char_input(self, prompt):
+        self.input_mode = True
+        self.console_output(prompt)
+        self.master.wait_variable(self._input_done)
+        self.input_mode = False
+        char = self.input_buffer
+        self.input_buffer = ""
+        return char
+
+    def console_output(self, text):
+        self.console_text.config(state="normal")
+        self.console_text.insert(END, text)
+        self.console_text.see(END)
+        self.console_text.config(state="normal")  # Keep it normal to allow input
+        if text.endswith('\n'):
+            self.console_text.insert(END, "\n")  # Add an extra newline for better readability
+        self.master.update()  # Force update of the GUI
 
     def reset_registers(self):
         self.simulator.reset_registers()
         self.update_registers()
         self.update_memory_viewer()
         self.update_console("Registers and memory reset.")
+        self.update_console("Instruction count reset to 0.")
 
     def update_registers(self):
         registers_text = "\n".join([f"R{i}: {value:04X}" for i, value in self.simulator.registers.items()])
@@ -261,12 +310,6 @@ class Application(Frame):
             self.update_console(f"Error en la conversión de Binario a Assembly: {str(e)}")
             import traceback
             self.update_console(traceback.format_exc())
-
-    def update_console(self, message):
-        self.console_text.config(state="normal")
-        self.console_text.insert(END, message + "\n")
-        self.console_text.see(END)
-        self.console_text.config(state="disabled")
 
     def clear_console(self):
         self.console_text.config(state="normal")
