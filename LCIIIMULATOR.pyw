@@ -4,9 +4,6 @@ from tkinter import messagebox
 from Converter import Conversor
 from Simulator import LC3Simulator
 from File_handler import FileHandler
-import tkinter as tk
-from tkinter import Menu
-from tkinter import filedialog
 
 
 class Application(Frame):
@@ -48,17 +45,6 @@ class Application(Frame):
 
         return space0
     
-    def create_space0(self):
-        space0 = Frame(self, bg="#3E3E3E")
-        space0.grid(row=0, column=0, padx=5, pady=5, sticky='nsew')
-
-        self.grid_rowconfigure(1, weight=1)
-        self.grid_columnconfigure(0, weight=1)
-        space0.grid_rowconfigure(1, weight=1)
-        space0.grid_columnconfigure(0, weight=1)
-
-        return space0
-
     def create_space1(self, space0):
             # Configuración de la barra de menú
             barra_menu = Menu(self.master)
@@ -84,7 +70,8 @@ class Application(Frame):
 
             # Botones que permanecen en `space1`
             buttons = [
-                ("RESET REGISTER", self.reset_registers),
+                ("RUN ALL", self.run_all),
+                ("STEP BY STEP", self.step_execution),
                 ("CLEAR ALL", self.clear_all)
             ]
 
@@ -128,15 +115,14 @@ class Application(Frame):
 
         label = Label(space2_1_1, text=" REGISTERS ", foreground="white", background="#4B4B4B")
         label.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
-        entry67 = Button(space2_1_1, text="STEP TO STEP", foreground="white", background="#4B4B4B", command=self.step_execution)
+        entry67 = Button(space2_1_1, text="RESET REGISTERS", foreground="white", background="#4B4B4B", command=self.reset_registers)
         entry67.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
-        entry68 = Button(space2_1_1, text="RUN ALL", foreground="white", background="#4B4B4B", command=self.run_all)
-        entry68.grid(row=0, column=2, padx=2, pady=2, sticky='wnse')
+
 
         space2_1_2 = Frame(space2, bg="grey")
         space2_1_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
 
-        self.registers_text = Text(space2, width=15, height=15, font=("Consolas", 10), fg="white", 
+        self.registers_text = Text(space2, width=15, height=13, font=("Consolas", 10), fg="white", 
             bg="#3E3E3E", insertbackground="white",wrap="word")
         
         self.registers_text.pack(side='top', expand=True, fill='both', padx=2, pady=2, ipadx=10)
@@ -154,7 +140,7 @@ class Application(Frame):
         space2_2_2 = Frame(space2, bg="grey")
         space2_2_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
 
-        self.console_text = Text(space2_2_2, width=15, height=20, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
+        self.console_text = Text(space2_2_2, width=15, height=15, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
         self.console_text.pack(side='bottom', expand=True, fill='both', padx=2, pady=2, ipadx=20)
         self.console_text.bind("<Key>", self.on_key_press)
         self._input_done = StringVar()
@@ -199,31 +185,9 @@ class Application(Frame):
         space3 = Frame(space1, bg="grey")
         space3.pack(side='left', expand=True, fill='both', padx=2, pady=2, ipadx=0)
 
-        # Assembly section
-        space3_1 = Frame(space3, bg="grey")
-        space3_1.pack(side='top', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
-        space3_1_1 = Frame(space3_1, bg="grey")
-        space3_1_1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
-
-        entry1 = Label(space3_1_1, text=" BINARY ", foreground="white", background="#4B4B4B")
-        entry1.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
-        clear_binary_button = Button(space3_1_1, text=" CLEAR ", foreground="white", background="#4B4B4B", command=self.clear_binary_text)
-        clear_binary_button.grid(row=0, column=3, padx=2, pady=2, sticky='wnse')
-        entry2 = Button(space3_1_1, text="TO ASSEMBLY", foreground="white", background="#4B4B4B", command=self.binary_to_assembly)
-        entry2.grid(row=0, column=4, padx=2, pady=2, sticky='wnse')
-
-        spacer = Label(space3_1_1, text="               ", foreground="grey", background="grey")
-        spacer.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
-
-        space3_1_2 = Frame(space3, bg="grey")
-        space3_1_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
-
-        self.assembly_text = Text(space3_1_2, width=10, height=15, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
-        self.assembly_text.pack(side='bottom', expand=True, fill='both', padx=2, pady=2, ipadx=20)
-
         # Binary section
         space3_2 = Frame(space3, bg="grey")
-        space3_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0)
+        space3_2.pack(side='top', expand=True, fill='both', padx=0, pady=0, ipadx=0)
         space3_2_1 = Frame(space3_2, bg="grey")
         space3_2_1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
 
@@ -231,17 +195,41 @@ class Application(Frame):
         entry3.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
         clear_assembly_button = Button(space3_2_1, text=" CLEAR ", foreground="white", background="#4B4B4B", command=self.clear_assembly_text)
         clear_assembly_button.grid(row=0, column=3, padx=2, pady=2, sticky='wnse')
-        entry4 = Button(space3_2_1, text="TO BINARY", foreground="white", background="#4B4B4B", command=self.assembly_to_binary)
+        entry4 = Button(space3_2_1, text=" LOAD -> COMPILE ", foreground="white", background="#4B4B4B", command=self.assembly_to_binary)
         entry4.grid(row=0, column=4, padx=2, pady=2, sticky='wnse')
 
-        spacer = Label(space3_2_1, text="         ", foreground="grey", background="grey")
+        spacer = Label(space3_2_1, text="   ", foreground="grey", background="grey")
         spacer.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
 
         space3_2_2 = Frame(space3, bg="grey")
         space3_2_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
 
-        self.binary_text = Text(space3_2_2, width=20, height=20, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
+        self.binary_text = Text(space3_2_2, width=20, height=13, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
         self.binary_text.pack(side='bottom', expand=True, fill='both', padx=2, pady=2, ipadx=20)
+
+
+
+        # Assembly section
+        space3_1 = Frame(space3, bg="grey")
+        space3_1.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
+        space3_1_1 = Frame(space3_1, bg="grey")
+        space3_1_1.grid(row=0, column=0, padx=2, pady=2, sticky='nsew')
+
+        entry1 = Label(space3_1_1, text=" BINARY ", foreground="white", background="#4B4B4B")
+        entry1.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
+        clear_binary_button = Button(space3_1_1, text=" CLEAR ", foreground="white", background="#4B4B4B", command=self.clear_binary_text)
+        clear_binary_button.grid(row=0, column=3, padx=2, pady=2, sticky='wnse')
+        entry2 = Button(space3_1_1, text=" LOAD -> DECOMPILE ", foreground="white", background="#4B4B4B", command=self.binary_to_assembly)
+        entry2.grid(row=0, column=4, padx=2, pady=2, sticky='wnse')
+
+        spacer = Label(space3_1_1, text="      ", foreground="grey", background="grey")
+        spacer.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
+
+        space3_1_2 = Frame(space3, bg="grey")
+        space3_1_2.pack(side='bottom', expand=True, fill='both', padx=0, pady=0, ipadx=0, ipady=0)
+
+        self.assembly_text = Text(space3_1_2, width=20, height=27, font=("Arial", 10), fg="white", bg="#3E3E3E", insertbackground="white")
+        self.assembly_text.pack(side='bottom', expand=True, fill='both', padx=2, pady=2, ipadx=20)
 
         return space3
 
