@@ -1,9 +1,9 @@
 from tkinter import *
 from tkinter import ttk
 from tkinter import messagebox
-from back_end import Conversor
-from back_end2 import LC3Simulator
-from back_end3 import FileHandler
+from Converter import Conversor
+from Simulator import LC3Simulator
+from File_handler import FileHandler
 
 
 class Application(Frame):
