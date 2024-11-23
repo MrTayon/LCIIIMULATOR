@@ -139,7 +139,7 @@ class LC3Simulator:
         self.memory[address] = f"{self.registers[f'R{sr}']:016b}"
 
     def _execute_jsr(self):
-        self.registers["R7"] = self.PC + 1
+        self.registers["R7"] = self.PC
         if self.current_instruction[4] == "1":
             pc_offset = self._sign_extend(int(self.current_instruction[5:], 2), 11)
             self.PC = (self.PC + pc_offset) & 0xFFFF
