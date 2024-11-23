@@ -26,14 +26,15 @@ Ideal para estudiantes y entusiastas de la arquitectura de computadoras.
    sudo apt install python3 python3-pip -y  
 2. Descarga los siguientes archivos del repositorio:
 
-   - `back_end.py`
-   - `back_end2.py`
-   - `back_end3.py`
-   - `front_end.pyw`
-4. (Opcional) Instala las dependencias necesarias si no tienes:  
+   - `Converter.py`
+   - `Simulator.py`
+   - `File_handler.py`
+   - `LCIIIMULATOR.pyw`
+3. (Opcional) Instala las dependencias necesarias si no tienes:  
    Tkinter
-5. Ejecuta la interfaz gráfica:  
-   python3 frond_end.pyw  
+   
+4. Ejecuta la interfaz gráfica:  
+   - `LCIIIMULATOR.pyw`    
 
 ### Para Windows
 1. Descarga LCIIIMULATOR.exe del repositorio
@@ -46,12 +47,12 @@ Si quieres ejecutar por pyhton:
    - Si encuentras problemas al ejecutar la interfaz gráfica, verifica que Tkinter esté disponible. 
 3. Descarga los siguientes archivos del repositorio:
 
-   - `back_end.py`
-   - `back_end2.py`
-   - `back_end3.py`
-   - `front_end.pyw`
-5. Ejecuta la interfaz gráfica:  
-   python frond_end.pyw  
+   - `Converter.py`
+   - `Simulator.py`
+   - `File_handler.py`
+   - `LCIIIMULATOR.pyw`
+4. Ejecuta la interfaz gráfica:  
+   - `LCIIIMULATOR.pyw`  
 
 ---
 
@@ -68,10 +69,10 @@ Si quieres ejecutar por pyhton:
 ## Estructura del Proyecto
 
 LCIIIMULATOR/  
-├── front_end/         -> Archivos para la interfaz gráfica  
-├── back_end/          -> Lógica para las conversiones de instrucciones  
-├── back_end2/         -> Lógica para el simulador  
-├── back_end3/         -> Funciones para cargar o guardar  
+├── LCIIIMULATOR/         -> Archivos para la interfaz gráfica  
+├── Converter/          -> Lógica para las conversiones de instrucciones  
+├── Simulator/         -> Lógica para el simulador  
+├── File_handler/         -> Funciones para cargar o guardar  
 └── README.md          -> Este archivo  
 
 ---
