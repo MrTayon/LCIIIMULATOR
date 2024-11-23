@@ -114,13 +114,18 @@ class Application(Frame):
 
 
         # MEMORY VIEWER
+        style = ttk.Style()
+        style.theme_use("default")
+        style.configure("Treeview", background="#3E3E3E", foreground="white", fieldbackground="#3E3E3E")
+        style.map("Treeview", background=[("selected", "#4B4B4B")])
+
         memory_frame = Frame(container, bg="grey", width=200)
         memory_frame.pack(side='right', expand=True, fill='both', padx=2, pady=2)
 
         memory_label = Label(memory_frame, text="MEMORY VIEWER", foreground="white", background="#4B4B4B")
         memory_label.pack(side='top', fill='x')
 
-        self.memory_tree = ttk.Treeview(memory_frame, columns=('Address', 'Value'), show='headings', height=20)
+        self.memory_tree = ttk.Treeview(memory_frame, columns=('Address', 'Value'), show='headings', height=20, style="Custom.Treeview")
         self.memory_tree.heading('Address', text='Address')
         self.memory_tree.heading('Value', text='Value')
         self.memory_tree.column('Address', width=80)
