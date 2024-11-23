@@ -4,7 +4,8 @@ class Conversor:
             "ADD": "0001", "AND": "0101", "BR": "0000", "JMP": "1100",
             "JSR": "0100", "LD": "0010", "LDI": "1010", "LDR": "0110",
             "LEA": "1110", "NOT": "1001", "RET": "1100", "RTI": "1000",
-            "ST": "0011", "STI": "1011", "STR": "0111", "TRAP": "1111"
+            "ST": "0011", "STI": "1011", "STR": "0111", "TRAP": "1111",
+            "MUL": "1101"
         }
         self.registers = {f"R{i}": f"{i:03b}" for i in range(8)}
         self.reverse_registers = {v: k for k, v in self.registers.items()}
@@ -55,6 +56,14 @@ class Conversor:
                 else:
                     SR2 = self.registers[parts[3]]
                     result.append(f"{self.keys[opcode]}{DR}{SR1}000{SR2}")
+            elif opcode == "MUL":
+                DR, SR1 = self.registers[parts[1]], self.registers[parts[2]]
+                if parts[3].startswith("#"):
+                    imm5 = int(parts[3][1:])
+                    result.append(f"1101{DR}{SR1}1{imm5 & 0x1F:05b}")
+                else:
+                    SR2 = self.registers[parts[3]]
+                    result.append(f"1101{DR}{SR1}000{SR2}")
             elif opcode.startswith("BR"):
                 conditions = opcode[2:].lower()
                 cond_bits = self.condition_bits.get(conditions, "000")

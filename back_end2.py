@@ -21,7 +21,8 @@ class LC3Simulator:
             "1011": self._execute_sti,
             "1100": self._execute_jmp,
             "1110": self._execute_lea,
-            "1001": self._execute_not
+            "1001": self._execute_not,
+            "1101": self._execute_mul
         }
         self.input_callback = None
         self.output_callback = None
@@ -107,6 +108,19 @@ class LC3Simulator:
             result = self.registers[f"R{sr1}"] & imm5
         self.registers[f"R{dr}"] = result & 0xFFFF
         self._update_flags(self.registers[f"R{dr}"])
+
+    def _execute_mul(self):
+        dr = int(self.current_instruction[4:7], 2)
+        sr1 = int(self.current_instruction[7:10], 2)
+        if self.current_instruction[10] == "0":
+            sr2 = int(self.current_instruction[13:], 2)
+            result = (self.registers[f"R{sr1}"] * self.registers[f"R{sr2}"]) & 0xFFFF
+        else:
+            imm5 = self._sign_extend(int(self.current_instruction[11:], 2), 5)
+            result = (self.registers[f"R{sr1}"] * imm5) & 0xFFFF
+        self.registers[f"R{dr}"] = result
+        self._update_flags(result)
+
 
     def _execute_ld(self):
         dr = int(self.current_instruction[4:7], 2)
