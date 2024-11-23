@@ -64,8 +64,11 @@ class LC3Simulator:
         opcode = self.current_instruction[:4]
 
         if opcode in self.instruction_set:
-            self.instruction_set[opcode]()
+            return_value = self.instruction_set[opcode]()
             self.instruction_count += 1
+            if return_value==False:
+                print("HALT, se termino")
+                return False
         else:
             print(f"Opcode desconocido: {opcode}")
 
