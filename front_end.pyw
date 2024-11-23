@@ -19,6 +19,7 @@ class Application(Frame):
         self.input_mode = False
         self.input_buffer = ""
 
+
     def create_layout(self):
         space0 = self.create_space0()
         space1 = self.create_space1(space0)
@@ -50,8 +51,11 @@ class Application(Frame):
         button3.grid(row=0, column=2, padx=2, pady=2, sticky='wnse')
         button4 = Button(self.space1, text="Save binary", foreground="white", background="#4B4B4B", command=lambda: self.file_handler.save_binary(self))
         button4.grid(row=0, column=3, padx=2, pady=2, sticky='wnse')
-        button5 = Button(self.space1, text="More", foreground="white", background="#4B4B4B", command=self.more)
+        button5 = Button(self.space1, text="CLEAR ALL", foreground="white", background="#4B4B4B", command=self.clear_all)
         button5.grid(row=0, column=5, padx=2, pady=2, sticky='wnse')
+        button6 = Button(self.space1, text="More", foreground="white", background="#4B4B4B", command=self.more)
+        button6.grid(row=0, column=6, padx=2, pady=2, sticky='wnse')
+
 
         space1 = Frame(self, bg="#3E3E3E")
         space1.grid(row=1, column=0, padx=5, pady=5, sticky='nsew')
@@ -67,7 +71,7 @@ class Application(Frame):
             "      LICENCIA GNU GENERAL PUBLIC LICENSE (GPL)\n"
             "*****************************************************\n"
             "Este software está licenciado bajo la GPLv3 (2024).\n\n"
-            "Desarrollado por: Taeeon, Nicolas.\n"
+            "Desarrollado por: Taeeon, Nicolas, Magno.\n"
             "Testeado a fondo por: Nicolas.\n\n"
             "Eres libre de usar, compartir y modificar este programa\n"
             "mientras respetes los términos de la licencia GPLv3.\n\n"
@@ -167,10 +171,12 @@ class Application(Frame):
 
         entry1 = Label(space3_1_1, text=" BINARY ", foreground="white", background="#4B4B4B")
         entry1.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
+        clear_binary_button = Button(space3_1_1, text=" CLEAR ", foreground="white", background="#4B4B4B", command=self.clear_binary_text)
+        clear_binary_button.grid(row=0, column=3, padx=2, pady=2, sticky='wnse')
         entry2 = Button(space3_1_1, text="TO ASSEMBLY", foreground="white", background="#4B4B4B", command=self.binary_to_assembly)
-        entry2.grid(row=0, column=2, padx=2, pady=2, sticky='wnse')
+        entry2.grid(row=0, column=4, padx=2, pady=2, sticky='wnse')
 
-        spacer = Label(space3_1_1, text="                          ", foreground="grey", background="grey")
+        spacer = Label(space3_1_1, text="               ", foreground="grey", background="grey")
         spacer.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
 
         space3_1_2 = Frame(space3, bg="grey")
@@ -187,10 +193,12 @@ class Application(Frame):
 
         entry3 = Label(space3_2_1, text=" ASSEMBLY ", foreground="white", background="#4B4B4B")
         entry3.grid(row=0, column=0, padx=2, pady=2, sticky='wnse')
+        clear_assembly_button = Button(space3_2_1, text=" CLEAR ", foreground="white", background="#4B4B4B", command=self.clear_assembly_text)
+        clear_assembly_button.grid(row=0, column=3, padx=2, pady=2, sticky='wnse')
         entry4 = Button(space3_2_1, text="TO BINARY", foreground="white", background="#4B4B4B", command=self.assembly_to_binary)
-        entry4.grid(row=0, column=2, padx=2, pady=2, sticky='wnse')
+        entry4.grid(row=0, column=4, padx=2, pady=2, sticky='wnse')
 
-        spacer = Label(space3_2_1, text="                             ", foreground="grey", background="grey")
+        spacer = Label(space3_2_1, text="         ", foreground="grey", background="grey")
         spacer.grid(row=0, column=1, padx=2, pady=2, sticky='wnse')
 
         space3_2_2 = Frame(space3, bg="grey")
@@ -234,6 +242,7 @@ class Application(Frame):
         message = f"Total instructions executed: {count}"
         self.update_console(message)
 
+
     def update_console(self, message):
         self.console_text.config(state="normal")
         self.console_text.insert(END, message + "\n")
@@ -258,8 +267,31 @@ class Application(Frame):
             self.console_text.insert(END, "\n")  # Add an extra newline for better readability
         self.master.update()  # Force update of the GUI
 
+    def clear_memory_viewer(self):
+        # Clear all items from the memory_tree
+        for item in self.memory_tree.get_children():
+            self.memory_tree.delete(item)
+        
+        # Update the console to inform the user
+        self.update_console("Memory viewer cleared.")
+
+    def clear_binary_text(self):
+        self.binary_text.delete("1.0", END)
+        self.update_console("Binary text area cleared.")
+
+    def clear_assembly_text(self):
+        self.assembly_text.delete("1.0", END)
+        self.update_console("Assembly text area cleared.")
+
+    def clear_all(self):
+        self.clear_binary_text()
+        self.clear_assembly_text()
+        self.reset_registers()
+        self.clear_console()
+
     def reset_registers(self):
         self.simulator.reset_registers()
+        self.clear_memory_viewer()
         self.update_registers()
         self.update_memory_viewer()
         self.update_console("Registers and memory reset.")
@@ -278,6 +310,7 @@ class Application(Frame):
         self.registers_text.config(state="disabled")
 
     def assembly_to_binary(self):
+        self.clear_memory_viewer()
         assembly_code = self.assembly_text.get("1.0", END).strip()
         self.update_console(f"Código Assembly recibido: {assembly_code}")
         if not assembly_code:
@@ -301,6 +334,7 @@ class Application(Frame):
             self.update_console(traceback.format_exc())
 
     def binary_to_assembly(self):
+        self.clear_memory_viewer()
         binary_code = self.binary_text.get("1.0", END).strip()
         self.update_console(f"Código Binario recibido:\n{binary_code}")
         if not binary_code:
