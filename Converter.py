@@ -200,6 +200,15 @@ class Conversor:
                     else:
                         sr2 = instruction & 0x7
                         result.append(f"\tAND R{dr}, R{sr1}, R{sr2}")
+                elif opcode == 13:
+                    dr = (instruction >> 9) & 0x7
+                    sr1 = (instruction >> 6) & 0x7
+                    if instruction & 0x20:
+                        imm5 = self.sign_extend(instruction & 0x1F, 5)
+                        result.append(f"\tMUL R{dr}, R{sr1}, #{imm5}")
+                    else:
+                        sr2 = instruction & 0x7
+                        result.append(f"\tMUL R{dr}, R{sr1}, R{sr2}")
                 elif opcode == 0:  # BR
                     n = (instruction >> 11) & 1
                     z = (instruction >> 10) & 1
