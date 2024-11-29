@@ -54,6 +54,8 @@ class Conversor:
                     if value < 0:
                         value = (1 << 16) + value  # Convert to two's complement
                     self.orig_instructions.append((current_address, f"{value:016b}"))
+                elif '.BLKW' in line:
+                    self.orig_instructions.append((current_address, '0'*16))
                 else:
                     self.orig_instructions.append((current_address, line))
                 current_address += 1
@@ -138,13 +140,16 @@ class Conversor:
             instruction = int(line, 2)
             opcode = (instruction >> 12) & 0xF
             
-            if opcode in [2, 3, 10, 11, 14]:  # LD, ST, LDI, STI, LEA
+            if opcode in [2, 3, 6, 7, 10, 11, 14]:  # LD, ST, LDR, STR, LDI, STI, LEA
                 offset = self.sign_extend(instruction & 0x1FF, 9)
                 target = current_address + 1 + offset
                 if target not in label_addresses:
                     label_addresses[target] = f"LABEL_{len(label_addresses)}"
-                    fill_addresses.add(target)
-            elif opcode == 0 and current_address not in fill_addresses:  # BR
+                    if opcode in [2, 6, 10, 14]:
+                        fill_addresses.add(target)
+                    elif opcode in [3, 7, 11]:
+                        blkw_addresses.add(target)
+            elif opcode == 0 and current_address not in fill_addresses and current_address not in blkw_addresses:  # BR
                 offset = self.sign_extend(instruction & 0x1FF, 9)
                 target = current_address + 1 + offset
                 if target not in label_addresses:
@@ -181,7 +186,7 @@ class Conversor:
                     label += f" .BLKW 1"
                 result.append(label)
 
-            if current_address not in fill_addresses:
+            if current_address not in fill_addresses and current_address not in blkw_addresses:
                 if opcode == 1:  # ADD
                     dr = (instruction >> 9) & 0x7
                     sr1 = (instruction >> 6) & 0x7
