@@ -33,6 +33,8 @@ class Conversor:
         # First pass: collect label addresses
         for line in lines:
             line = line.strip()
+            if ';' in line:
+                line = line.split(';')[0]
             if not line or line.startswith(';') or line.upper().startswith('.ORIG') or line.upper().startswith('.END'):
                 continue
             if ':' in line:
@@ -40,7 +42,20 @@ class Conversor:
                 label_addresses[label.strip()] = current_address
                 line = instruction.strip()
             if line:
-                self.orig_instructions.append((current_address, line))
+                if '.FILL' in line:
+                    parts = line.split()
+                    value_str = parts[-1]
+                    if value_str.startswith('#'):
+                        value = int(value_str[1:])
+                    elif value_str.startswith('x'):
+                        value = int(value_str[1:], 16)
+                    else:
+                        value = int(value_str)
+                    if value < 0:
+                        value = (1 << 16) + value  # Convert to two's complement
+                    self.orig_instructions.append((current_address, f"{value:016b}"))
+                else:
+                    self.orig_instructions.append((current_address, line))
                 current_address += 1
 
         # Second pass: convert to binary
@@ -103,7 +118,7 @@ class Conversor:
             elif opcode == "RTI":
                 result.append(f"{self.keys[opcode]}000000000000")
             else:
-                raise ValueError(f"Opcode no soportado: {opcode}")
+                result.append(line)
 
         return "\n".join(result)
 
@@ -111,6 +126,7 @@ class Conversor:
         lines = binary_code.strip().split('\n')
         result = []
         label_addresses = {}
+        fill_addresses = set()
         blkw_addresses = set()
         current_address = 0x3000  # Inicializamos con la dirección por defecto
 
@@ -122,12 +138,13 @@ class Conversor:
             instruction = int(line, 2)
             opcode = (instruction >> 12) & 0xF
             
-            if opcode == 0:  # BR
+            if opcode in [2, 3, 10, 11, 14]:  # LD, ST, LDI, STI, LEA
                 offset = self.sign_extend(instruction & 0x1FF, 9)
                 target = current_address + 1 + offset
                 if target not in label_addresses:
                     label_addresses[target] = f"LABEL_{len(label_addresses)}"
-            elif opcode in [2, 3, 10, 11, 14]:  # LD, ST, LDI, STI, LEA
+                    fill_addresses.add(target)
+            elif opcode == 0 and current_address not in fill_addresses:  # BR
                 offset = self.sign_extend(instruction & 0x1FF, 9)
                 target = current_address + 1 + offset
                 if target not in label_addresses:
@@ -154,79 +171,84 @@ class Conversor:
             opcode = (instruction >> 12) & 0xF
 
             if current_address in label_addresses:
-                result.append(f"{label_addresses[current_address]}:")
+                label = f"{label_addresses[current_address]}:"
+                if current_address in fill_addresses:
+                    num = instruction & 0xFFFF
+                    if num > 0x7FFF:
+                        num -= 0x10000
+                    label += f" .FILL #{num}"
+                elif current_address in blkw_addresses:
+                    label += f" .BLKW 1"
+                result.append(label)
 
-            if current_address in blkw_addresses:
-                result.append("\t.BLKW 1")
-            elif opcode == 1:  # ADD
-                dr = (instruction >> 9) & 0x7
-                sr1 = (instruction >> 6) & 0x7
-                if instruction & 0x20:
-                    imm5 = self.sign_extend(instruction & 0x1F, 5)
-                    result.append(f"\tADD R{dr}, R{sr1}, #{imm5}")
-                else:
-                    sr2 = instruction & 0x7
-                    result.append(f"\tADD R{dr}, R{sr1}, R{sr2}")
-            elif opcode == 5:  # AND
-                dr = (instruction >> 9) & 0x7
-                sr1 = (instruction >> 6) & 0x7
-                if instruction & 0x20:
-                    imm5 = self.sign_extend(instruction & 0x1F, 5)
-                    result.append(f"\tAND R{dr}, R{sr1}, #{imm5}")
-                else:
-                    sr2 = instruction & 0x7
-                    result.append(f"\tAND R{dr}, R{sr1}, R{sr2}")
-            elif opcode == 0:  # BR
-                n = (instruction >> 11) & 1
-                z = (instruction >> 10) & 1
-                p = (instruction >> 9) & 1
-                offset = self.sign_extend(instruction & 0x1FF, 9)
-                target = current_address + 1 + offset
-                cond = "".join(['n' if n else '', 'z' if z else '', 'p' if p else ''])
-                label = label_addresses.get(target, f"x{target:04X}")
-                result.append(f"\tBR{cond.upper()} {label}")
-            elif opcode in [2, 3, 10, 11, 14]:  # LD, ST, LDI, STI, LEA
-                dr = (instruction >> 9) & 0x7
-                offset = self.sign_extend(instruction & 0x1FF, 9)
-                target = current_address + 1 + offset
-                op_name = {2: "LD", 3: "ST", 10: "LDI", 11: "STI", 14: "LEA"}[opcode]
-                label = label_addresses.get(target, f"x{target:04X}")
-                result.append(f"\t{op_name} R{dr}, {label}")
-            elif opcode in [6, 7]:  # LDR, STR
-                dr = (instruction >> 9) & 0x7
-                base_r = (instruction >> 6) & 0x7
-                offset6 = self.sign_extend(instruction & 0x3F, 6)
-                op_name = "LDR" if opcode == 6 else "STR"
-                result.append(f"\t{op_name} R{dr}, R{base_r}, #{offset6}")
-            elif opcode == 12:  # JMP or RET
-                base_r = (instruction >> 6) & 0x7
-                if base_r == 7:
-                    result.append("\tRET")
-                else:
-                    result.append(f"\tJMP R{base_r}")
-            elif opcode == 4:  # JSR or JSRR
-                if instruction & 0x800:
-                    offset = self.sign_extend(instruction & 0x7FF, 11)
+            if current_address not in fill_addresses:
+                if opcode == 1:  # ADD
+                    dr = (instruction >> 9) & 0x7
+                    sr1 = (instruction >> 6) & 0x7
+                    if instruction & 0x20:
+                        imm5 = self.sign_extend(instruction & 0x1F, 5)
+                        result.append(f"\tADD R{dr}, R{sr1}, #{imm5}")
+                    else:
+                        sr2 = instruction & 0x7
+                        result.append(f"\tADD R{dr}, R{sr1}, R{sr2}")
+                elif opcode == 5:  # AND
+                    dr = (instruction >> 9) & 0x7
+                    sr1 = (instruction >> 6) & 0x7
+                    if instruction & 0x20:
+                        imm5 = self.sign_extend(instruction & 0x1F, 5)
+                        result.append(f"\tAND R{dr}, R{sr1}, #{imm5}")
+                    else:
+                        sr2 = instruction & 0x7
+                        result.append(f"\tAND R{dr}, R{sr1}, R{sr2}")
+                elif opcode == 0:  # BR
+                    n = (instruction >> 11) & 1
+                    z = (instruction >> 10) & 1
+                    p = (instruction >> 9) & 1
+                    offset = self.sign_extend(instruction & 0x1FF, 9)
                     target = current_address + 1 + offset
+                    cond = "".join(['n' if n else '', 'z' if z else '', 'p' if p else ''])
                     label = label_addresses.get(target, f"x{target:04X}")
-                    result.append(f"\tJSR {label}")
-                else:
+                    result.append(f"\tBR{cond.upper()} {label}")
+                elif opcode in [2, 3, 10, 11, 14]:  # LD, ST, LDI, STI, LEA
+                    dr = (instruction >> 9) & 0x7
+                    offset = self.sign_extend(instruction & 0x1FF, 9)
+                    target = current_address + 1 + offset
+                    op_name = {2: "LD", 3: "ST", 10: "LDI", 11: "STI", 14: "LEA"}[opcode]
+                    label = label_addresses.get(target, f"x{target:04X}")
+                    result.append(f"\t{op_name} R{dr}, {label}")
+                elif opcode in [6, 7]:  # LDR, STR
+                    dr = (instruction >> 9) & 0x7
                     base_r = (instruction >> 6) & 0x7
-                    result.append(f"\tJSRR R{base_r}")
-            elif opcode == 15:  # TRAP
-                trapvect8 = instruction & 0xFF
-                if trapvect8 == 0x25:
-                    result.append("\tTRAP x25")
-                else:
-                    result.append(f"\tTRAP x{trapvect8:02X}")
-            elif opcode == 9:  # NOT
-                dr = (instruction >> 9) & 0x7
-                sr = (instruction >> 6) & 0x7
-                result.append(f"\tNOT R{dr}, R{sr}")
-            elif opcode == 8:  # RTI
-                result.append("\tRTI")
-            else:
-                result.append(f"\t.FILL x{instruction:04X}")
+                    offset6 = self.sign_extend(instruction & 0x3F, 6)
+                    op_name = "LDR" if opcode == 6 else "STR"
+                    result.append(f"\t{op_name} R{dr}, R{base_r}, #{offset6}")
+                elif opcode == 12:  # JMP or RET
+                    base_r = (instruction >> 6) & 0x7
+                    if base_r == 7:
+                        result.append("\tRET")
+                    else:
+                        result.append(f"\tJMP R{base_r}")
+                elif opcode == 4:  # JSR or JSRR
+                    if instruction & 0x800:
+                        offset = self.sign_extend(instruction & 0x7FF, 11)
+                        target = current_address + 1 + offset
+                        label = label_addresses.get(target, f"x{target:04X}")
+                        result.append(f"\tJSR {label}")
+                    else:
+                        base_r = (instruction >> 6) & 0x7
+                        result.append(f"\tJSRR R{base_r}")
+                elif opcode == 15:  # TRAP
+                    trapvect8 = instruction & 0xFF
+                    if trapvect8 == 0x25:
+                        result.append("\tTRAP x25")
+                    else:
+                        result.append(f"\tTRAP x{trapvect8:02X}")
+                elif opcode == 9:  # NOT
+                    dr = (instruction >> 9) & 0x7
+                    sr = (instruction >> 6) & 0x7
+                    result.append(f"\tNOT R{dr}, R{sr}")
+                elif opcode == 8:  # RTI
+                    result.append("\tRTI")
 
             current_address += 1
 
